@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co; base-uri 'self'; form-action 'self'">
+  <title>أقساطي — كل أقساطك بمكان واحد</title>
+  <meta name="description" content="اجمع أقساطك من تابي وتمارا والبنك والبطاقة بمكان واحد، واعرف نسبتها من راتبك، وافحص قبل لا تقسّط شي جديد.">
+  <meta name="theme-color" content="#0f2a4a">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f2a4a'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23f5b942' font-family='Arial'%3E%D9%82%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap brand">
+      <span class="logo" aria-hidden="true">ق</span>
+      <div>
+        <h1>أقساطي</h1>
+        <p>كل أقساطك بمكان واحد، وتعرف قبل لا تقسّط إذا تقدر.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="banner" class="banner" role="alert" hidden></div>
+
+    <section class="card" id="salary-card" aria-labelledby="salary-h">
+      <h2 id="salary-h">راتبك</h2>
+      <form id="salary-form" class="row" novalidate>
+        <label class="field">
+          <span>الراتب الشهري (د.ك)</span>
+          <input id="salary" name="salary" inputmode="decimal" autocomplete="off" placeholder="مثال: 1200">
+          <small class="err" data-err="salary"></small>
+        </label>
+        <label class="field narrow">
+          <span>الحد الآمن من الراتب (%)</span>
+          <input id="limit" name="limit" inputmode="decimal" autocomplete="off" value="40">
+          <small class="err" data-err="limit"></small>
+        </label>
+        <button type="submit" class="btn">حفظ الراتب</button>
+      </form>
+      <p class="hint">الحد الآمن هو أقصى نسبة من راتبك تبيها تروح للأقساط. 40% بداية معقولة، وتقدر تغيرها.</p>
+    </section>
+
+    <section class="card dash" id="dash" aria-live="polite">
+      <p class="loading">جاري التحميل…</p>
+    </section>
+
+    <div class="grid2">
+      <section class="card" id="add-card" aria-labelledby="add-h">
+        <h2 id="add-h">إضافة قسط</h2>
+        <form id="add-form" novalidate>
+          <label class="field">
+            <span>الجهة</span>
+            <select id="provider" name="provider"></select>
+            <small class="err" data-err="provider"></small>
+          </label>
+          <label class="field" id="other-wrap" hidden>
+            <span>اسم الجهة</span>
+            <input id="provider-other" name="providerOther" maxlength="40" autocomplete="off" placeholder="مثال: بيت التمويل">
+          </label>
+          <label class="field">
+            <span>على شنو؟ <em>(اختياري)</em></span>
+            <input id="title" name="title" maxlength="80" autocomplete="off" placeholder="مثال: آيفون، سيارة، أثاث">
+            <small class="err" data-err="title"></small>
+          </label>
+          <div class="row3">
+            <label class="field">
+              <span>المبلغ الشهري (د.ك)</span>
+              <input id="monthly" name="monthly" inputmode="decimal" autocomplete="off" placeholder="مثال: 45.500">
+              <small class="err" data-err="monthly"></small>
+            </label>
+            <label class="field">
+              <span>يوم الاستحقاق</span>
+              <input id="due-day" name="dueDay" inputmode="numeric" autocomplete="off" placeholder="1 – 31">
+              <small class="err" data-err="dueDay"></small>
+            </label>
+            <label class="field">
+              <span>كم قسط باقي؟</span>
+              <input id="remaining" name="remaining" inputmode="numeric" autocomplete="off" placeholder="مثال: 6">
+              <small class="err" data-err="remaining"></small>
+            </label>
+          </div>
+          <button type="submit" class="btn">أضف القسط</button>
+        </form>
+      </section>
+
+      <section class="card" id="check-card" aria-labelledby="check-h">
+        <h2 id="check-h">أقدر أشتريه؟</h2>
+        <p class="hint">قبل لا تضغط «قسّطها»، شوف شنو بيصير بنسبتك من الراتب.</p>
+        <form id="check-form" novalidate>
+          <div class="row2">
+            <label class="field">
+              <span>سعر الشي (د.ك)</span>
+              <input id="price" name="price" inputmode="decimal" autocomplete="off" placeholder="مثال: 360">
+              <small class="err" data-err="price"></small>
+            </label>
+            <label class="field">
+              <span>عدد الأقساط (شهور)</span>
+              <input id="count" name="count" inputmode="numeric" autocomplete="off" value="4">
+              <small class="err" data-err="count"></small>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-gold">افحص</button>
+        </form>
+        <div id="check-result" class="check-result" aria-live="polite" hidden></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="wrap foot">
+    بياناتك محفوظة في Supabase ومربوطة بهالمتصفح. · أقساطي — نسخة MVP
+  </footer>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
