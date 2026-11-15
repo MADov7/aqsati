@@ -26,8 +26,30 @@ MVP لمشروع FinTech (CODED · UniCODE · Web with AI — اليوم الس�
 - **السيرفر:** Node بدون إطار عمل. نقطة وحدة `POST /api/rpc` (`lib/rpc.js`) تتكلم مع **MongoDB Atlas** (`lib/store.js`).
   - على **Vercel**: `api/rpc.js` (Serverless Function).
   - على جهازك: `server.mjs` (نفس الكود).
-- **البيانات بـ MongoDB:** مجموعتين `profiles` و `installments`، وكل شي مربوط بـ token عشوائي خاص بالمتصفح. ولا مفتاح يوصل للمتصفح.
+- **البيانات بـ MongoDB:** `profiles` و `installments` (البيانات)، و `users` و `sessions` و `login_attempts` (الحسابات). ولا مفتاح يوصل للمتصفح.
 - النسخة الأولى (اليوم السادس) كانت على Supabase: `supabase/schema-day6-supabase.sql`.
+
+## الحسابات (إيميل + كلمة سر)
+
+- **بدون حساب (ضيف):** المتصفح عنده token عشوائي (uuid) بالـ localStorage، وبياناتك مربوطة فيه.
+- **بحساب:** `auth_signup` / `auth_login` يرجعون كوكي `aqsati_session` (HttpOnly · SameSite=Lax · Secure على https · 30 يوم).
+  بعدها السيرفر ياخذ صاحب البيانات من الكوكي (`u:<userId>`) ويتجاهل token المتصفح، فتشوف أقساطك من أي جهاز.
+- **أول ما تسجل أو تدخل:** أقساط الضيف تنتقل لحسابك (الأقدم أول، وبدون ما يتعدى 50 قسط)، والراتب ينتقل بس إذا حسابك ما فيه راتب.
+- **كلمة السر:** 8 إلى 200 حرف، تنحفظ scrypt (N=16384) مع salt عشوائي، والمقارنة timingSafeEqual. كل هذا بـ `node:crypto` بدون أي مكتبة (`lib/auth.js`).
+- **الجلسة:** الكوكي فيه رقم عشوائي 32 بايت، وقاعدة البيانات تحفظ بس الـ SHA-256 حقه. ينتهي بعد 30 يوم (ونتأكد من التاريخ بالكود، مو بس TTL).
+- **الحماية:**
+  - رسالة الغلط بالدخول وحدة دايماً (`invalid credentials`)، فما تعرف إذا الإيميل مسجل أو لا.
+  - بعد 8 محاولات غلط لنفس الإيميل، أو 30 من نفس الـ IP (والتسجيل ينحسب على الـ IP)، يرد `429` لمدة 15 دقيقة.
+  - أي طلب جاي من موقع ثاني (Origin / Sec-Fetch-Site مختلف) ينرد بـ `403 bad origin`، ولازم `Content-Type: application/json`.
+
+| `fn` | `args` | يرجع |
+|---|---|---|
+| `aqsati_state` / `aqsati_save` / `aqsati_add` / `aqsati_update` / `aqsati_remove` | نفس قبل + `p_token` | STATE |
+| `auth_signup` / `auth_login` | `email`, `password`, `p_token` | STATE + كوكي |
+| `auth_logout` | — | `{ profile: null, installments: [], user: null }` + يمسح الكوكي |
+
+STATE = `{ profile: {salary, safe_limit} | null, installments: [...], user: { email } | null }`.
+رموز الأخطاء: `invalid email`، `weak password`، `email taken`، `invalid credentials`، `too many attempts` (429)، `bad origin` (403)، `config` (500)، `db_unavailable` (503).
 
 ## الإعدادات (بدون أسرار بالكود)
 
@@ -43,9 +65,18 @@ MVP لمشروع FinTech (CODED · UniCODE · Web with AI — اليوم الس�
 ```bash
 npm install     # مكتبة وحدة: mongodb
 npm start       # http://localhost:3000
-npm test        # اختبارات الحسابات وقاعدة البيانات (node --test)
+npm test        # اختبارات الحسابات وقاعدة البيانات والدخول (node --test)
 ```
+
+### تجربة بدون MongoDB (وضع الذاكرة)
+
+```bash
+node server.mjs --memory          # أو: AQSATI_MEMORY_DB=1 node server.mjs
+```
+
+يشغّل التطبيق كامل (حسابات + أقساط) بقاعدة بيانات بالذاكرة (`lib/memorydb.js`)، وما يحتاج مكتبة `mongodb` ولا `MONGODB_URI`.
+كل شي ينمسح أول ما توقف السيرفر، وبيطلع لك تحذير بالـ console. **للتجربة على جهازك بس، لا تفعّله على Vercel.**
 
 ## الرؤية (مو بالـ MVP)
 
-تسجيل دخول بكود على الإيميل (OTP)، تنبيه قبل موعد كل قسط، قراءة رسايل البنك تلقائي، خطة سداد تقترح أي قسط تخلصه أول عشان توفر، وربط مع البنوك وتطبيقات التقسيط.
+تأكيد الإيميل واسترجاع كلمة السر، تنبيه قبل موعد كل قسط، قراءة رسايل البنك تلقائي، خطة سداد تقترح أي قسط تخلصه أول عشان توفر، وربط مع البنوك وتطبيقات التقسيط.

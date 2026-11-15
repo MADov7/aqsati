@@ -2,11 +2,14 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'">
   <title>أقساطي — كل أقساطك بمكان واحد</title>
   <meta name="description" content="اجمع أقساطك من تابي وتمارا والبنك والبطاقة بمكان واحد، واعرف نسبتها من راتبك، وافحص قبل لا تقسّط شي جديد.">
   <meta name="theme-color" content="#0f2a4a">
+  <meta property="og:title" content="أقساطي — كل أقساطك بمكان واحد">
+  <meta property="og:description" content="اعرف كم تاخذ الأقساط من راتبك، وافحص قبل لا تقسّط شي جديد.">
+  <meta property="og:locale" content="ar_KW">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f2a4a'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23f5b942' font-family='Arial'%3E%D9%82%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,111 +18,517 @@
   <script type="module" src="/app.js"></script>
 </head>
 <body>
-  <header class="top">
-    <div class="wrap brand">
-      <span class="logo" aria-hidden="true">ق</span>
-      <div>
-        <h1>أقساطي</h1>
-        <p>كل أقساطك بمكان واحد، وتعرف قبل لا تقسّط إذا تقدر.</p>
-        <p class="privacy">🔒 ما نطلب حسابك البنكي ولا بطاقتك، بس الأرقام الي تكتبها أنت.</p>
+  <a class="skip" href="#app">تخطّى للحاسبة</a>
+  <div class="progress" aria-hidden="true"><span id="scroll-progress"></span></div>
+
+  <!-- ===================== top bar ===================== -->
+  <header class="topbar" id="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="#top" aria-label="أقساطي — فوق الصفحة">
+        <span class="logo" aria-hidden="true">ق</span>
+        <span class="brand-name">أقساطي</span>
+      </a>
+
+      <nav class="nav" aria-label="أقسام الحاسبة">
+        <a href="#dash" data-spy="dash">
+          <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 15a8 8 0 1 1 16 0"/><path d="M12 15l4.5-4.5"/><path d="M4 19.5h16"/></svg>
+          <span>لوحتي</span>
+        </a>
+        <a href="#add-card" data-spy="add-card">
+          <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+          <span>أضف قسط</span>
+        </a>
+        <a href="#check-card" data-spy="check-card">
+          <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5.5 8.5h13l-1.2 11h-10.6z"/><path d="M9 8.5a3 3 0 0 1 6 0"/><path d="M9.5 14l1.8 1.8 3.4-3.6"/></svg>
+          <span>أقدر أشتريه؟</span>
+        </a>
+      </nav>
+
+      <div class="auth-area">
+        <button type="button" class="btn btn-gold btn-sm" id="login-btn">دخول</button>
+        <div class="user-box" id="user-box" hidden>
+          <span class="avatar" id="user-avatar" aria-hidden="true"></span>
+          <span class="user-email" id="user-email"></span>
+          <button type="button" class="btn btn-glass btn-sm" id="logout-btn">خروج</button>
+        </div>
       </div>
     </div>
   </header>
 
-  <main class="wrap">
-    <div id="banner" class="banner" role="alert" hidden></div>
+  <main id="top">
+    <!-- ===================== hero ===================== -->
+    <section class="hero" aria-labelledby="hero-h">
+      <div class="hero-bg" aria-hidden="true">
+        <span class="orb orb-1"></span>
+        <span class="orb orb-2"></span>
+        <span class="grid-lines"></span>
+      </div>
 
-    <section class="card" id="salary-card" aria-labelledby="salary-h">
-      <h2 id="salary-h">راتبك</h2>
-      <form id="salary-form" class="row" novalidate>
-        <label class="field">
-          <span>الراتب الشهري (د.ك)</span>
-          <input id="salary" name="salary" inputmode="decimal" autocomplete="off" placeholder="مثال: 1200">
-          <small class="err" data-err="salary"></small>
-        </label>
-        <label class="field narrow">
-          <span>الحد الآمن من الراتب (%)</span>
-          <input id="limit" name="limit" inputmode="decimal" autocomplete="off" value="40">
-          <small class="err" data-err="limit"></small>
-        </label>
-        <button type="submit" class="btn">حفظ الراتب</button>
-      </form>
-      <p class="hint">الحد الآمن هو أقصى نسبة من راتبك تبيها تروح للأقساط. 40% بداية معقولة، وتقدر تغيرها.</p>
+      <div class="wrap hero-in">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>تابي · تمارا · البنك · البطاقة — بشاشة وحدة</p>
+          <h1 id="hero-h" class="hero-title">
+            <span class="ln ln-1">كل أقساطك</span>
+            <span class="ln ln-2"><span class="gold-text">بمكان واحد</span>،</span>
+            <span class="ln ln-3">وتعرف قبل لا تقسّط إذا تقدر.</span>
+          </h1>
+          <p class="lead">اجمع أقساطك من كل الجهات، وشوف كم تاخذ من راتبك، واعرف موعد كل قسط قبل لا يفاجئك. وقبل لا تشتري شي جديد بالتقسيط، نقولك إذا يناسب ميزانيتك ولا لا.</p>
+          <div class="cta-row">
+            <a class="btn btn-gold btn-lg" href="#app" id="start-cta">ابدأ الحين — بدون تسجيل</a>
+            <button type="button" class="btn btn-glass btn-lg" id="hero-login">عندي حساب</button>
+          </div>
+          <ul class="trust" aria-label="ليش أقساطي؟">
+            <li><span aria-hidden="true">🔒</span> ما نطلب حسابك البنكي ولا بطاقتك</li>
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9 9.5c0-1.4 1.3-2.2 3-2.2s3 .8 3 2.2-1.3 1.9-3 2.4-3 1-3 2.4 1.3 2.3 3 2.3 3-.9 3-2.3M12 5.5v1.8M12 16.7v1.8"/></svg>
+              بالدينار
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h7"/></svg>
+              بالعربي
+            </li>
+          </ul>
+        </div>
+
+        <div class="hero-visual">
+          <div class="scene-box" id="scene-box">
+            <!-- shown until the 3D scene draws its first frame, and kept if WebGL isn't available -->
+            <svg class="scene-fallback" viewBox="0 0 400 400" aria-hidden="true" focusable="false">
+              <defs>
+                <radialGradient id="fb-glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#f5b942" stop-opacity=".38"/>
+                  <stop offset="1" stop-color="#f5b942" stop-opacity="0"/>
+                </radialGradient>
+                <linearGradient id="fb-coin" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#fff0c2"/>
+                  <stop offset=".45" stop-color="#f5b942"/>
+                  <stop offset="1" stop-color="#b8780f"/>
+                </linearGradient>
+                <linearGradient id="fb-edge" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#dc9d25"/>
+                  <stop offset="1" stop-color="#7f5006"/>
+                </linearGradient>
+                <linearGradient id="fb-glass" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#ffffff" stop-opacity=".30"/>
+                  <stop offset="1" stop-color="#9cc4ff" stop-opacity=".06"/>
+                </linearGradient>
+              </defs>
+              <circle cx="200" cy="200" r="190" fill="url(#fb-glow)"/>
+              <g class="fb-card fb-card-1">
+                <g transform="rotate(-14 165 135)">
+                  <rect x="62" y="72" width="206" height="128" rx="18" fill="url(#fb-glass)" stroke="#ffffff" stroke-opacity=".38"/>
+                  <rect x="86" y="112" width="34" height="26" rx="6" fill="#f5b942"/>
+                  <rect x="150" y="96" width="94" height="9" rx="4.5" fill="#ffffff" fill-opacity=".55"/>
+                  <rect x="86" y="164" width="120" height="8" rx="4" fill="#ffffff" fill-opacity=".35"/>
+                </g>
+              </g>
+              <g class="fb-card fb-card-2">
+                <g transform="rotate(11 250 250)">
+                  <rect x="150" y="190" width="196" height="122" rx="18" fill="url(#fb-glass)" stroke="#ffffff" stroke-opacity=".32"/>
+                  <rect x="172" y="226" width="32" height="24" rx="6" fill="#f5b942" fill-opacity=".9"/>
+                  <rect x="232" y="212" width="90" height="9" rx="4.5" fill="#ffffff" fill-opacity=".5"/>
+                  <rect x="172" y="276" width="110" height="8" rx="4" fill="#ffffff" fill-opacity=".3"/>
+                </g>
+              </g>
+              <g class="fb-stack">
+                <ellipse cx="112" cy="318" rx="52" ry="16" fill="url(#fb-edge)"/>
+                <ellipse cx="112" cy="312" rx="52" ry="16" fill="url(#fb-coin)"/>
+                <ellipse cx="112" cy="300" rx="52" ry="16" fill="url(#fb-edge)"/>
+                <ellipse cx="112" cy="294" rx="52" ry="16" fill="url(#fb-coin)"/>
+                <ellipse cx="112" cy="282" rx="52" ry="16" fill="url(#fb-edge)"/>
+                <ellipse cx="112" cy="276" rx="52" ry="16" fill="url(#fb-coin)"/>
+              </g>
+              <g class="fb-coin">
+                <circle cx="214" cy="176" r="78" fill="url(#fb-edge)"/>
+                <circle cx="209" cy="171" r="74" fill="url(#fb-coin)"/>
+                <circle cx="209" cy="171" r="59" fill="none" stroke="#8a5a00" stroke-opacity=".45" stroke-width="3"/>
+                <text x="209" y="188" text-anchor="middle" font-size="46" font-weight="700" fill="#7a4f00">د.ك</text>
+              </g>
+              <g class="fb-spark" fill="#ffd27a">
+                <path d="M330 92l4 10 10 4-10 4-4 10-4-10-10-4 10-4z"/>
+                <path d="M70 230l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
+                <path d="M300 340l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/>
+              </g>
+            </svg>
+            <canvas id="scene" class="scene-canvas" aria-hidden="true"></canvas>
+
+            <div class="float-chip chip-a" aria-hidden="true">
+              <span class="chip-ico ok">✓</span>
+              <span><small>نسبتك من الراتب</small><b>32% · مريح</b></span>
+            </div>
+            <div class="float-chip chip-b" aria-hidden="true">
+              <span class="chip-ico gold">⏰</span>
+              <span><small>القسط الجاي · باچر</small><b>45.500 د.ك</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <a class="scroll-cue" href="#how" aria-label="انزل لـ «كيف يشتغل؟»">
+        <span aria-hidden="true"></span>
+      </a>
     </section>
 
-    <section class="card dash" id="dash" aria-live="polite">
-      <p class="loading">جاري التحميل…</p>
+    <!-- ===================== how it works ===================== -->
+    <section class="how" id="how" aria-labelledby="how-h">
+      <div class="wrap">
+        <header class="section-head reveal">
+          <p class="kicker">كيف يشتغل؟</p>
+          <h2 id="how-h">ثلاث خطوات، وتعرف وين واقف</h2>
+          <p>بدون ربط حسابات، وبدون أرقام بطاقات. أنت تكتب، ونحن نحسب.</p>
+        </header>
+
+        <ol class="steps">
+          <li class="step reveal tilt">
+            <div class="step-art">
+              <svg viewBox="0 0 240 170" aria-hidden="true" focusable="false">
+                <defs>
+                  <linearGradient id="s1-card" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#ffe3a0"/>
+                    <stop offset="1" stop-color="#e9a425"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="120" cy="88" r="74" fill="#eaf0fa"/>
+                <g class="s-phone">
+                  <rect x="76" y="14" width="96" height="146" rx="18" fill="#0f2a4a"/>
+                  <rect x="83" y="26" width="82" height="122" rx="10" fill="#ffffff"/>
+                  <rect x="108" y="18" width="32" height="4" rx="2" fill="#2b4a72"/>
+                  <g class="s-row s-row-1">
+                    <rect x="89" y="36" width="70" height="26" rx="7" fill="#f3f6fb"/>
+                    <circle cx="148" cy="49" r="7" fill="#14b8a6"/>
+                    <rect x="108" y="42" width="30" height="5" rx="2.5" fill="#c3cfdf"/>
+                    <rect x="95" y="51" width="22" height="5" rx="2.5" fill="#0f2a4a"/>
+                  </g>
+                  <g class="s-row s-row-2">
+                    <rect x="89" y="68" width="70" height="26" rx="7" fill="#f3f6fb"/>
+                    <circle cx="148" cy="81" r="7" fill="#f5b942"/>
+                    <rect x="112" y="74" width="26" height="5" rx="2.5" fill="#c3cfdf"/>
+                    <rect x="95" y="83" width="26" height="5" rx="2.5" fill="#0f2a4a"/>
+                  </g>
+                  <g class="s-row s-row-3">
+                    <rect x="89" y="100" width="70" height="26" rx="7" fill="#f3f6fb"/>
+                    <circle cx="148" cy="113" r="7" fill="#8b5cf6"/>
+                    <rect x="104" y="106" width="34" height="5" rx="2.5" fill="#c3cfdf"/>
+                    <rect x="95" y="115" width="18" height="5" rx="2.5" fill="#0f2a4a"/>
+                  </g>
+                </g>
+                <g class="s-fly">
+                  <rect x="20" y="92" width="58" height="38" rx="7" fill="url(#s1-card)" transform="rotate(-12 49 111)"/>
+                  <rect x="28" y="104" width="12" height="9" rx="2" fill="#0f2a4a" fill-opacity=".55" transform="rotate(-12 49 111)"/>
+                </g>
+                <g class="s-plus">
+                  <circle cx="182" cy="134" r="19" fill="#f5b942"/>
+                  <path d="M182 125v18M173 134h18" stroke="#0f2a4a" stroke-width="4" stroke-linecap="round"/>
+                </g>
+                <g class="s-spark" fill="#f5b942">
+                  <path d="M204 40l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
+                  <path d="M42 46l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>
+                </g>
+              </svg>
+            </div>
+            <span class="step-num" aria-hidden="true">١</span>
+            <h3>أضف أقساطك</h3>
+            <p>تابي، تمارا، قرض البنك، البطاقة… حط المبلغ الشهري ويوم الاستحقاق وكم قسط باقي. والعدد ينقص لحاله كل شهر.</p>
+          </li>
+
+          <li class="step reveal tilt">
+            <div class="step-art">
+              <svg viewBox="0 0 240 170" aria-hidden="true" focusable="false">
+                <defs>
+                  <linearGradient id="s2-ring" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#22c55e"/>
+                    <stop offset="1" stop-color="#15803d"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="120" cy="86" r="74" fill="#eaf0fa"/>
+                <circle cx="120" cy="86" r="50" fill="#ffffff"/>
+                <circle cx="120" cy="86" r="50" fill="none" stroke="#e3e9f2" stroke-width="13"/>
+                <circle class="s-ring" cx="120" cy="86" r="50" fill="none" stroke="url(#s2-ring)" stroke-width="13" stroke-linecap="round" stroke-dasharray="100.5 314.2" transform="rotate(-90 120 86)"/>
+                <g transform="rotate(144 120 86)"><line x1="120" y1="27" x2="120" y2="45" stroke="#0f2a4a" stroke-width="4" stroke-linecap="round"/></g>
+                <text x="120" y="92" text-anchor="middle" font-size="25" font-weight="700" fill="#0f2a4a">32%</text>
+                <text x="120" y="110" text-anchor="middle" font-size="11" fill="#55657c">من راتبك</text>
+                <g class="s-bars">
+                  <rect class="s-bar s-bar-1" x="22" y="104" width="12" height="40" rx="4" fill="#c7d4e8"/>
+                  <rect class="s-bar s-bar-2" x="38" y="88" width="12" height="56" rx="4" fill="#9fb5d6"/>
+                  <rect class="s-bar s-bar-3" x="54" y="72" width="12" height="72" rx="4" fill="#0f2a4a"/>
+                </g>
+                <g class="s-badge">
+                  <rect x="168" y="28" width="56" height="24" rx="12" fill="#e7f6ec"/>
+                  <text x="196" y="45" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">مريح ✓</text>
+                </g>
+                <g class="s-coins">
+                  <ellipse cx="196" cy="140" rx="20" ry="7" fill="#b8780f"/>
+                  <ellipse cx="196" cy="136" rx="20" ry="7" fill="#f5b942"/>
+                  <ellipse cx="196" cy="128" rx="20" ry="7" fill="#b8780f"/>
+                  <ellipse cx="196" cy="124" rx="20" ry="7" fill="#ffd27a"/>
+                </g>
+              </svg>
+            </div>
+            <span class="step-num" aria-hidden="true">٢</span>
+            <h3>شوف نسبتك</h3>
+            <p>كم تاخذ الأقساط من راتبك، وكم يبقى لك، والي باقي تدفعه هالشهر. وتنبيه إذا قربت من حدك الآمن.</p>
+          </li>
+
+          <li class="step reveal tilt">
+            <div class="step-art">
+              <svg viewBox="0 0 240 170" aria-hidden="true" focusable="false">
+                <defs>
+                  <linearGradient id="s3-bag" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#1d4677"/>
+                    <stop offset="1" stop-color="#0f2a4a"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="120" cy="86" r="74" fill="#eaf0fa"/>
+                <g class="s-bag">
+                  <path d="M62 62h76l-7 88H69z" fill="url(#s3-bag)"/>
+                  <path d="M82 62v-8a18 18 0 0 1 36 0v8" fill="none" stroke="#f5b942" stroke-width="6" stroke-linecap="round"/>
+                  <rect x="78" y="88" width="44" height="6" rx="3" fill="#ffffff" fill-opacity=".25"/>
+                </g>
+                <g class="s-tag">
+                  <g transform="rotate(-10 60 40)">
+                    <rect x="22" y="26" width="72" height="28" rx="8" fill="#ffffff" stroke="#dbe3ef"/>
+                    <text x="58" y="45" text-anchor="middle" font-size="12" font-weight="700" fill="#0f2a4a">360 د.ك</text>
+                  </g>
+                </g>
+                <g class="s-lens">
+                  <line x1="176" y1="128" x2="198" y2="150" stroke="#0f2a4a" stroke-width="9" stroke-linecap="round"/>
+                  <circle cx="156" cy="106" r="32" fill="#ffffff" stroke="#0f2a4a" stroke-width="7"/>
+                  <path class="s-check" d="M141 106l10 10 20-21" fill="none" stroke="#16a34a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                </g>
+                <g class="s-chip4">
+                  <rect x="176" y="30" width="44" height="24" rx="12" fill="#f5b942"/>
+                  <text x="198" y="47" text-anchor="middle" font-size="12" font-weight="700" fill="#0f2a4a">4×</text>
+                </g>
+              </svg>
+            </div>
+            <span class="step-num" aria-hidden="true">٣</span>
+            <h3>افحص قبل لا تقسّط</h3>
+            <p>تحط السعر وعدد الأقساط، ونقولك نسبتك الجديدة، وإذا بتتعدى حدك نقترح أقل عدد أقساط يخليك مرتاح.</p>
+          </li>
+        </ol>
+      </div>
     </section>
 
-    <div class="grid2">
-      <section class="card" id="add-card" aria-labelledby="add-h">
-        <h2 id="add-h">إضافة قسط</h2>
-        <form id="add-form" novalidate>
-          <label class="field">
-            <span>الجهة</span>
-            <select id="provider" name="provider"></select>
-            <small class="err" data-err="provider"></small>
-          </label>
-          <label class="field" id="other-wrap" hidden>
-            <span>اسم الجهة</span>
-            <input id="provider-other" name="providerOther" maxlength="40" autocomplete="off" placeholder="مثال: بيت التمويل">
-          </label>
-          <label class="field">
-            <span>على شنو؟ <em>(اختياري)</em></span>
-            <input id="title" name="title" maxlength="80" autocomplete="off" placeholder="مثال: آيفون، سيارة، أثاث">
-            <small class="err" data-err="title"></small>
-          </label>
-          <div class="row3">
-            <label class="field">
-              <span>المبلغ الشهري (د.ك)</span>
-              <input id="monthly" name="monthly" inputmode="decimal" autocomplete="off" placeholder="مثال: 45.500">
-              <small class="err" data-err="monthly"></small>
-            </label>
-            <label class="field">
-              <span>يوم الاستحقاق</span>
-              <input id="due-day" name="dueDay" inputmode="numeric" autocomplete="off" placeholder="1 – 31">
-              <small class="err" data-err="dueDay"></small>
-            </label>
-            <label class="field">
-              <span>كم قسط باقي؟</span>
-              <input id="remaining" name="remaining" inputmode="numeric" autocomplete="off" placeholder="مثال: 6">
-              <small class="err" data-err="remaining"></small>
-            </label>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn">أضف القسط</button>
-            <button type="button" class="btn btn-ghost" id="cancel-edit" hidden>إلغاء</button>
-          </div>
-        </form>
-      </section>
+    <!-- ===================== the app ===================== -->
+    <section class="app" id="app" aria-labelledby="app-h" tabindex="-1">
+      <div class="wrap app-in">
+        <header class="section-head reveal">
+          <p class="kicker">حاسبتك</p>
+          <h2 id="app-h">أقساطك وراتبك بلوحة وحدة</h2>
+          <p>كل شي يتحسب لحاله. تقدر تبدأ بدون تسجيل، وإذا تبي تفتحها من أي جهاز سوّ حساب بإيميل وباسوورد.</p>
+        </header>
 
-      <section class="card" id="check-card" aria-labelledby="check-h">
-        <h2 id="check-h">أقدر أشتريه؟</h2>
-        <p class="hint">قبل لا تضغط «قسّطها»، شوف شنو بيصير بنسبتك من الراتب.</p>
-        <form id="check-form" novalidate>
-          <div class="row2">
-            <label class="field">
-              <span>سعر الشي (د.ك)</span>
-              <input id="price" name="price" inputmode="decimal" autocomplete="off" placeholder="مثال: 360">
-              <small class="err" data-err="price"></small>
-            </label>
-            <label class="field">
-              <span>عدد الأقساط (شهور)</span>
-              <input id="count" name="count" inputmode="numeric" autocomplete="off" value="4">
-              <small class="err" data-err="count"></small>
-            </label>
+        <div id="banner" class="banner" role="alert" hidden></div>
+
+        <aside class="save-card" id="save-card" aria-labelledby="save-h" hidden>
+          <div class="save-ico" aria-hidden="true">
+            <svg viewBox="0 0 48 48" focusable="false"><path d="M24 5l15 6v11c0 10-6.4 17.6-15 21-8.6-3.4-15-11-15-21V11z" fill="#f5b942"/><path d="M16.5 24.5l5.2 5.2 10-10.4" fill="none" stroke="#0f2a4a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <button type="submit" class="btn btn-gold">افحص</button>
-        </form>
-        <div id="check-result" class="check-result" aria-live="polite" hidden></div>
-      </section>
-    </div>
+          <div class="save-copy">
+            <h3 id="save-h">احفظ أقساطك بحساب عشان ما تضيع لو غيرت جهازك</h3>
+            <p>إيميل وباسوورد بس، وكل الي كتبته هني ينتقل لحسابك تلقائياً.</p>
+          </div>
+          <div class="save-actions">
+            <button type="button" class="btn btn-gold" id="save-signup">سوّ حساب</button>
+            <button type="button" class="icon-btn" id="save-dismiss" aria-label="سكّر هالتنبيه">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+        </aside>
+
+        <section class="card salary-card reveal" id="salary-card" aria-labelledby="salary-h">
+          <div class="card-head">
+            <span class="card-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.6"/></svg>
+            </span>
+            <div>
+              <h2 id="salary-h">راتبك</h2>
+              <p class="hint">الحد الآمن هو أقصى نسبة من راتبك تبيها تروح للأقساط. 40% بداية معقولة، وتقدر تغيرها.</p>
+            </div>
+          </div>
+          <form id="salary-form" class="row" novalidate>
+            <label class="field">
+              <span>الراتب الشهري (د.ك)</span>
+              <input id="salary" name="salary" inputmode="decimal" autocomplete="off" placeholder="مثال: 1200">
+              <small class="err" data-err="salary"></small>
+            </label>
+            <label class="field narrow">
+              <span>الحد الآمن من الراتب (%)</span>
+              <input id="limit" name="limit" inputmode="decimal" autocomplete="off" value="40">
+              <small class="err" data-err="limit"></small>
+            </label>
+            <button type="submit" class="btn">حفظ الراتب</button>
+          </form>
+        </section>
+
+        <section class="card dash" id="dash" aria-labelledby="dash-h" aria-busy="true">
+          <h2 id="dash-h" class="sr-only">لوحة الشهر</h2>
+          <p class="sr-only">جاري التحميل…</p>
+          <div class="skel-head" aria-hidden="true"><span class="skel skel-title"></span><span class="skel skel-pill"></span></div>
+          <div class="dash-top" aria-hidden="true">
+            <div class="skel skel-ring"></div>
+            <div class="stats">
+              <div class="skel skel-tile"></div>
+              <div class="skel skel-tile"></div>
+              <div class="skel skel-tile"></div>
+              <div class="skel skel-tile"></div>
+            </div>
+          </div>
+          <div class="skel-list" aria-hidden="true">
+            <span class="skel skel-line"></span>
+            <span class="skel skel-row"></span>
+            <span class="skel skel-row"></span>
+          </div>
+        </section>
+        <p id="dash-status" class="sr-only" role="status"></p>
+
+        <div class="grid2">
+          <section class="card reveal" id="add-card" aria-labelledby="add-h">
+            <div class="card-head">
+              <span class="card-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+              </span>
+              <div>
+                <h2 id="add-h">إضافة قسط</h2>
+                <p class="hint">من أي جهة: تقسيط، قرض، أو بطاقة.</p>
+              </div>
+            </div>
+            <form id="add-form" novalidate>
+              <label class="field">
+                <span>الجهة</span>
+                <select id="provider" name="provider"></select>
+                <small class="err" data-err="provider"></small>
+              </label>
+              <label class="field" id="other-wrap" hidden>
+                <span>اسم الجهة</span>
+                <input id="provider-other" name="providerOther" maxlength="40" autocomplete="off" placeholder="مثال: بيت التمويل">
+              </label>
+              <label class="field">
+                <span>على شنو؟ <em>(اختياري)</em></span>
+                <input id="title" name="title" maxlength="80" autocomplete="off" placeholder="مثال: آيفون، سيارة، أثاث">
+                <small class="err" data-err="title"></small>
+              </label>
+              <div class="row3">
+                <label class="field">
+                  <span>المبلغ الشهري (د.ك)</span>
+                  <input id="monthly" name="monthly" inputmode="decimal" autocomplete="off" placeholder="مثال: 45.500">
+                  <small class="err" data-err="monthly"></small>
+                </label>
+                <label class="field">
+                  <span>يوم الاستحقاق</span>
+                  <input id="due-day" name="dueDay" inputmode="numeric" autocomplete="off" placeholder="1 – 31">
+                  <small class="err" data-err="dueDay"></small>
+                </label>
+                <label class="field">
+                  <span>كم قسط باقي؟</span>
+                  <input id="remaining" name="remaining" inputmode="numeric" autocomplete="off" placeholder="مثال: 6">
+                  <small class="err" data-err="remaining"></small>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn">أضف القسط</button>
+                <button type="button" class="btn btn-ghost" id="cancel-edit" hidden>إلغاء</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="card check-card reveal" id="check-card" aria-labelledby="check-h">
+            <div class="card-head">
+              <span class="card-ico gold" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M5.5 8.5h13l-1.2 11h-10.6z"/><path d="M9 8.5a3 3 0 0 1 6 0"/><path d="M9.5 14l1.8 1.8 3.4-3.6"/></svg>
+              </span>
+              <div>
+                <h2 id="check-h">أقدر أشتريه؟</h2>
+                <p class="hint">قبل لا تضغط «قسّطها»، شوف شنو بيصير بنسبتك من الراتب.</p>
+              </div>
+            </div>
+            <form id="check-form" novalidate>
+              <div class="row2">
+                <label class="field">
+                  <span>سعر الشي (د.ك)</span>
+                  <input id="price" name="price" inputmode="decimal" autocomplete="off" placeholder="مثال: 360">
+                  <small class="err" data-err="price"></small>
+                </label>
+                <label class="field">
+                  <span>عدد الأقساط (شهور)</span>
+                  <input id="count" name="count" inputmode="numeric" autocomplete="off" value="4">
+                  <small class="err" data-err="count"></small>
+                </label>
+              </div>
+              <button type="submit" class="btn btn-gold btn-block">افحص</button>
+            </form>
+            <div id="check-result" class="check-result" aria-live="polite" hidden></div>
+          </section>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <footer class="wrap foot">
-    بياناتك محفوظة في MongoDB ومربوطة بهالمتصفح. · أقساطي — نسخة MVP
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <div class="foot-brand">
+        <span class="logo sm" aria-hidden="true">ق</span>
+        <span>أقساطي</span>
+      </div>
+      <p class="foot-privacy">🔒 ما نطلب حسابك البنكي ولا بطاقتك، بس الأرقام الي تكتبها أنت.</p>
+      <p class="foot-note">بدون حساب: بياناتك مربوطة بهالمتصفح. ومع حساب: تفتحها من أي جهاز. · أقساطي — نسخة MVP</p>
+    </div>
   </footer>
 
   <div id="toast" class="toast" role="status" hidden></div>
+
+  <!-- ===================== auth dialog ===================== -->
+  <div class="modal" id="auth-modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-describedby="auth-sub" tabindex="-1">
+      <button type="button" class="icon-btn modal-x" data-close aria-label="سكّر">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="modal-head">
+        <span class="logo" aria-hidden="true">ق</span>
+        <h2 id="auth-title">هلا فيك من جديد</h2>
+        <p id="auth-sub">ادخل بإيميلك وتلقى أقساطك مثل ما خليتها.</p>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="نوع الدخول">
+        <button type="button" role="tab" id="tab-login" aria-selected="true" aria-controls="auth-form" tabindex="0">دخول</button>
+        <button type="button" role="tab" id="tab-signup" aria-selected="false" aria-controls="auth-form" tabindex="-1">حساب جديد</button>
+        <span class="tab-ink" aria-hidden="true"></span>
+      </div>
+
+      <form id="auth-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+        <label class="field">
+          <span>الإيميل</span>
+          <input id="auth-email" name="email" type="email" inputmode="email" autocomplete="email" dir="ltr" spellcheck="false" autocapitalize="off" placeholder="name@example.com" maxlength="254" aria-describedby="auth-email-err">
+          <small class="err" id="auth-email-err"></small>
+        </label>
+        <div class="field">
+          <label for="auth-password">الباسوورد</label>
+          <div class="pw-wrap">
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" dir="ltr" maxlength="200" aria-describedby="auth-password-err">
+            <button type="button" class="pw-toggle" id="pw-toggle" aria-pressed="false" aria-label="أظهر الباسوورد">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="M4 4l16 16"/></svg>
+            </button>
+          </div>
+          <small class="err" id="auth-password-err"></small>
+        </div>
+        <div class="strength" id="pw-strength" hidden>
+          <span class="strength-bar" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <small id="pw-strength-text">لازم 8 حروف أو أكثر</small>
+        </div>
+
+        <div class="auth-err" id="auth-err" role="alert"></div>
+
+        <button type="submit" class="btn btn-gold btn-block btn-lg" id="auth-submit">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="btn-label">دخول</span>
+        </button>
+        <p class="auth-note">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+          الأقساط الي كتبتها بهالمتصفح تنتقل لحسابك تلقائياً.
+        </p>
+      </form>
+    </div>
+  </div>
 </body>
 </html>

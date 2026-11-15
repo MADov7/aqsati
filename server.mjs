@@ -1,5 +1,9 @@
 // أقساطي local server: serves public/ and POST /api/rpc (the same handler Vercel runs as api/rpc.js).
 // Reads MONGODB_URI from the environment or from .env.local when present.
+//
+//   node server.mjs            → real MongoDB (MONGODB_URI)
+//   node server.mjs --memory   → no MongoDB at all: an in-memory database (same as AQSATI_MEMORY_DB=1).
+//                                Data and accounts vanish when the server stops. Local development only.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
@@ -18,7 +22,9 @@ try {
   // no .env.local — settings come from the environment
 }
 
-const { default: rpcHandler } = await import('./lib/rpc.js');
+if (process.argv.slice(2).includes('--memory')) process.env.AQSATI_MEMORY_DB = '1';
+
+const { default: rpcHandler, isMemoryMode } = await import('./lib/rpc.js');
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -70,4 +76,11 @@ const server = http.createServer(async (req, res) => {
 });
 
 const port = Number(process.env.PORT) || 3000;
-server.listen(port, '0.0.0.0', () => console.log(`أقساطي running on http://localhost:${port}`));
+server.listen(port, '0.0.0.0', () => {
+  console.log(`أقساطي running on http://localhost:${port}`);
+  if (isMemoryMode()) {
+    console.warn('WARNING: memory mode — no MongoDB; accounts and installments are kept in RAM and lost on restart.');
+  } else if (!process.env.MONGODB_URI) {
+    console.warn('MONGODB_URI is not set — /api/rpc will answer 500 config. Use `node server.mjs --memory` to try the app without MongoDB.');
+  }
+});
