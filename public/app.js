@@ -5,7 +5,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const TOKEN_KEY = 'aqsati_token';
 
 const state = { profile: null, installments: [], loaded: false, check: null };
-let config = null;
 let memoryToken = null;
 
 // ---------- identity: one random token per browser (no account needed for the MVP) ----------
@@ -24,27 +23,16 @@ function getToken() {
   }
 }
 
-// ---------- Supabase (PostgREST RPC over fetch, no library needed) ----------
-
-async function loadConfig() {
-  let res;
-  try {
-    res = await fetch('/api/config', { cache: 'no-store' });
-  } catch {
-    throw new Error('network');
-  }
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok || !body.url || !body.key) throw new Error('config');
-  config = { url: String(body.url).replace(/\/+$/, ''), key: String(body.key) };
-}
+// ---------- our server (/api/rpc) → MongoDB Atlas ----------
 
 async function rpc(fn, args) {
-  if (!config) await loadConfig();
-  const headers = { 'Content-Type': 'application/json', apikey: config.key };
-  if (config.key.startsWith('eyJ')) headers.Authorization = `Bearer ${config.key}`;
   let res;
   try {
-    res = await fetch(`${config.url}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(args) });
+    res = await fetch('/api/rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fn, args }),
+    });
   } catch {
     throw new Error('network');
   }
@@ -55,7 +43,8 @@ async function rpc(fn, args) {
 
 const ERRORS = {
   network: 'ما قدرنا نوصل للسيرفر. تأكد من الإنترنت وجرب مرة ثانية.',
-  config: 'إعدادات Supabase ناقصة: لازم SUPABASE_URL و SUPABASE_ANON_KEY بالـ Environment Variables.',
+  config: 'إعدادات قاعدة البيانات ناقصة: لازم MONGODB_URI بالـ Environment Variables.',
+  db_unavailable: 'قاعدة البيانات مو متاحة الحين، جرب بعد شوي.',
   'too many installments': 'وصلت للحد الأقصى (50 قسط).',
   'invalid first due date': 'تاريخ الاستحقاق مو منطقي، تأكد من يوم الاستحقاق.',
 };

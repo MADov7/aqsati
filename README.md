@@ -2,7 +2,7 @@
 
 كل أقساطك بمكان واحد، وتعرف قبل لا تقسّط إذا تقدر.
 
-MVP لمشروع FinTech (CODED · UniCODE · Web with AI — اليوم السادس).
+MVP لمشروع FinTech (CODED · UniCODE · Web with AI — اليوم السادس والسابع).
 
 **الموقع:** https://aqsati-three.vercel.app
 
@@ -22,31 +22,31 @@ MVP لمشروع FinTech (CODED · UniCODE · Web with AI — اليوم الس�
 
 ## التقنيات
 
-- صفحة وحدة HTML + CSS + JavaScript بدون أي مكتبة، ولا تحتاج `npm install`.
-- **Supabase** (Postgres) للبيانات. الجداول بـ schema خاصة ما تنوصل من الـ API، والمتصفح يكلم 4 دوال بس (`aqsati_state` و `aqsati_save` و `aqsati_add` و `aqsati_remove`)، وكل دالة تفلتر بـ token عشوائي خاص بالمتصفح.
-- **Vercel** للنشر: الملفات من `public/`، والدالة `api/config.js` تعطي الصفحة إعدادات Supabase من الـ Environment Variables. ما في أي مفتاح مكتوب بالكود.
-- **GitHub** بيت الكود.
+- **الواجهة:** صفحة وحدة HTML + CSS + JavaScript بدون أي مكتبة (`public/`).
+- **السيرفر:** Node بدون إطار عمل. نقطة وحدة `POST /api/rpc` (`lib/rpc.js`) تتكلم مع **MongoDB Atlas** (`lib/store.js`).
+  - على **Vercel**: `api/rpc.js` (Serverless Function).
+  - على **Replit** وعلى جهازك: `server.mjs` (نفس الكود).
+- **البيانات بـ MongoDB:** مجموعتين `profiles` و `installments`، وكل شي مربوط بـ token عشوائي خاص بالمتصفح. ولا مفتاح يوصل للمتصفح.
+- النسخة الأولى (اليوم السادس) كانت على Supabase: `supabase/schema-day6-supabase.sql`.
 
-## التشغيل على جهازك
+## الإعدادات (بدون أسرار بالكود)
+
+| المكان | وين تحط `MONGODB_URI` |
+|---|---|
+| Replit | Tools → Secrets |
+| Vercel | Settings → Environment Variables |
+| جهازك | ملف `.env.local` (انسخ `.env.example`) |
+
+وبـ MongoDB Atlas → Network Access لازم يكون مسموح `0.0.0.0/0`، لأن Vercel و Replit عناوينهم تتغير.
+
+## التشغيل
 
 ```bash
-cp .env.example .env.local   # وعب القيمتين من Supabase → Project Settings → API Keys
-npm run dev                  # http://localhost:5317
-npm test                     # اختبارات الحسابات (node --test)
+npm install     # مكتبة وحدة: mongodb
+npm start       # http://localhost:3000
+npm test        # اختبارات الحسابات وقاعدة البيانات (node --test)
 ```
-
-## إعداد Supabase لأول مرة
-
-افتح Supabase → SQL Editor، والصق محتوى `supabase/schema.sql`، وشغله.
-
-## النشر على Vercel
-
-1. Import للـ repo من GitHub (Framework: Other، بدون Build Command).
-2. Settings → Environment Variables:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY` (الـ publishable key أو الـ anon key)
-3. Redeploy.
 
 ## الرؤية (مو بالـ MVP)
 
-تنبيه قبل موعد كل قسط، قراءة رسايل البنك تلقائي، خطة سداد تقترح أي قسط تخلصه أول عشان توفر، وربط مع البنوك وتطبيقات التقسيط.
+تسجيل دخول بكود على الإيميل (OTP)، تنبيه قبل موعد كل قسط، قراءة رسايل البنك تلقائي، خطة سداد تقترح أي قسط تخلصه أول عشان توفر، وربط مع البنوك وتطبيقات التقسيط.

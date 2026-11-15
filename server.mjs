@@ -1,5 +1,5 @@
-// Local preview without installing anything: serves public/ and runs api/config.js
-// the way Vercel does, reading the Supabase settings from .env.local.
+// أقساطي server for Replit and local runs: serves public/ and POST /api/rpc (same handler Vercel uses).
+// Reads MONGODB_URI from the environment (Replit Secrets) or from .env.local when present.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
@@ -15,10 +15,10 @@ try {
     if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
   }
 } catch {
-  console.warn('No .env.local found — /api/config will report missing settings.');
+  // no .env.local (normal on Replit / Vercel) — settings come from the environment
 }
 
-const { default: config } = await import('./api/config.js');
+const { default: rpcHandler } = await import('./lib/rpc.js');
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -29,7 +29,14 @@ const TYPES = {
   '.ico': 'image/x-icon',
 };
 
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
+};
+
 const server = http.createServer(async (req, res) => {
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -39,13 +46,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname === '/api/config') {
-    res.status = (code) => { res.statusCode = code; return res; };
-    res.json = (body) => {
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.end(JSON.stringify(body));
-    };
-    config(req, res);
+  if (pathname === '/api/rpc') {
+    await rpcHandler(req, res);
     return;
   }
 
@@ -59,7 +61,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const body = await readFile(file);
     res.setHeader('Content-Type', TYPES[extname(file)] || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'no-cache');
     res.end(body);
   } catch {
     res.statusCode = 404;
@@ -67,5 +69,5 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-const port = Number(process.env.PORT) || 5317;
-server.listen(port, () => console.log(`أقساطي running on http://localhost:${port}`));
+const port = Number(process.env.PORT) || 3000;
+server.listen(port, '0.0.0.0', () => console.log(`أقساطي running on http://localhost:${port}`));
