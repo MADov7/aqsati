@@ -95,6 +95,20 @@ test('at most 50 installments per token', async () => {
   await assert.rejects(store.add(TOKEN, row), /too many installments/);
 });
 
+test('update changes my installment only', async () => {
+  const store = createStore(fakeDb(), { now });
+  let s = await store.add(TOKEN, { provider: 'تابي', title: 'آيفون', monthly: 45.5, dueDay: 25, remaining: 3, firstDue: '2026-11-25' });
+  const id = s.installments[0].id;
+  await store.update(OTHER, id, { provider: 'x', title: '', monthly: 1, dueDay: 1, remaining: 1, firstDue: '2026-12-01' });
+  assert.equal((await store.state(TOKEN)).installments[0].provider, 'تابي', 'another token cannot edit my rows');
+  s = await store.update(TOKEN, id, { provider: 'تمارا', title: 'لابتوب', monthly: '60', dueDay: 28, remaining: 5, firstDue: '2026-11-28' });
+  assert.deepEqual(
+    [s.installments[0].provider, s.installments[0].title, s.installments[0].monthly_amount, s.installments[0].remaining_count],
+    ['تمارا', 'لابتوب', 60, 5],
+  );
+  await assert.rejects(store.update(TOKEN, id, { provider: 'تمارا', title: '', monthly: 0, dueDay: 28, remaining: 5, firstDue: '2026-11-28' }), /invalid monthly/);
+});
+
 test('handleRpc maps the page calls to the store', async () => {
   const store = createStore(fakeDb(), { now });
   await handleRpc({ fn: 'aqsati_save', args: { p_token: TOKEN, p_salary: 800, p_safe_limit: 40 } }, store);

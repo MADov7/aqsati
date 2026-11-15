@@ -93,6 +93,34 @@ function toastAction(text, label, onAction, ms = 5000) {
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
+// ---------- edit an installment (reuses the add form) ----------
+function startEdit(id) {
+  const inst = state.installments.find((i) => i.id === id);
+  if (!inst) return;
+  const status = C.installmentStatus(inst, C.todayISO());
+  const known = C.PROVIDERS.includes(inst.provider) && inst.provider !== 'أخرى';
+  $('#provider').value = known ? inst.provider : 'أخرى';
+  $('#other-wrap').hidden = known;
+  $('#provider-other').value = known ? '' : inst.provider;
+  $('#title').value = inst.title || '';
+  $('#monthly').value = Number(inst.monthly_amount).toFixed(3);
+  $('#due-day').value = String(inst.due_day);
+  $('#remaining').value = String(Math.max(1, status.remaining));
+  state.editingId = id;
+  $('#add-h').textContent = 'تعديل قسط';
+  $('#add-form button[type="submit"]').textContent = 'حفظ التعديل';
+  $('#cancel-edit').hidden = false;
+  $('#add-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#monthly').focus({ preventScroll: true });
+}
+
+function endEdit() {
+  state.editingId = null;
+  $('#add-h').textContent = 'إضافة قسط';
+  $('#add-form button[type="submit"]').textContent = 'أضف القسط';
+  $('#cancel-edit').hidden = true;
+}
+
 // ---------- delete with undo ----------
 const pending = new Map(); // id -> { item, index, timer }
 
@@ -194,7 +222,10 @@ function renderDash() {
       <div class="item-main"><span class="prov">${esc(i.provider)}</span><span class="title">${esc(i.title || 'بدون وصف')}</span></div>
       <div class="item-amt">${C.fmtKWD(i.monthly)}</div>
       <div class="item-meta">${C.fmtDay(i.nextDue)} · <b>${C.fmtDaysLeft(i.daysLeft)}</b> · باقي ${C.fmtCount(i.remaining)} · آخر قسط ${C.fmtMonth(i.lastDue)}</div>
-      <button type="button" class="del" data-del="${esc(i.id)}" aria-label="${esc(`حذف قسط ${i.provider}`)}">حذف</button>
+      <div class="item-actions">
+        <button type="button" class="edit" data-edit="${esc(i.id)}" aria-label="${esc(`تعديل قسط ${i.provider}`)}">تعديل</button>
+        <button type="button" class="del" data-del="${esc(i.id)}" aria-label="${esc(`حذف قسط ${i.provider}`)}">حذف</button>
+      </div>
     </li>`).join('');
 
   const finished = s.finished.length ? `
@@ -305,10 +336,12 @@ function bindForms(token) {
       $('#provider-other').focus();
     }
     if (!v.ok) return;
+    const editingId = state.editingId;
     withBusy(form, async () => {
       const first = C.firstDueDate(v.value.dueDay, C.todayISO());
-      const next = await rpc('aqsati_add', {
+      const next = await rpc(editingId ? 'aqsati_update' : 'aqsati_add', {
         p_token: token,
+        ...(editingId ? { p_id: editingId } : {}),
         p_provider: v.value.provider,
         p_title: v.value.title,
         p_monthly: v.value.monthly,
@@ -326,8 +359,20 @@ function bindForms(token) {
       applyState(next);
       form.reset();
       $('#other-wrap').hidden = true;
-      toast('انضاف القسط ✓');
+      if (editingId) {
+        endEdit();
+        toast('انحفظ التعديل ✓');
+      } else {
+        toast('انضاف القسط ✓');
+      }
     });
+  });
+
+  $('#cancel-edit').addEventListener('click', () => {
+    $('#add-form').reset();
+    $('#other-wrap').hidden = true;
+    showErrors($('#add-form'), {});
+    endEdit();
   });
 
   $('#check-form').addEventListener('submit', (e) => {
@@ -343,6 +388,11 @@ function bindForms(token) {
   // Two-step delete inside the page (native confirm() is blocked in some in-app browsers),
   // then a 5-second «تراجع» window before the delete is actually sent to the server.
   $('#dash').addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      startEdit(editBtn.dataset.edit);
+      return;
+    }
     const btn = e.target.closest('[data-del]');
     if (!btn) return;
     if (btn.dataset.armed !== '1') {

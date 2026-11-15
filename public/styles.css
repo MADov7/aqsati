@@ -257,6 +257,25 @@ input[aria-invalid='true'], select[aria-invalid='true'] { border-color: var(--ov
 
 .privacy { margin: 6px 0 0; font-size: 0.85rem; opacity: 0.85; }
 
+.form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.item .item-actions { grid-area: del; display: flex; gap: 6px; }
+.edit {
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--navy);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-height: 36px;
+  cursor: pointer;
+}
+.edit:hover { background: #eef2f8; }
+@media (max-width: 520px) {
+  .item { grid-template-areas: 'main amt' 'meta meta' 'del del'; }
+  .item .item-actions { justify-self: start; }
+}
+
 @media (max-width: 860px) {
   .grid2 { grid-template-columns: minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
