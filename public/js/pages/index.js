@@ -16,7 +16,7 @@ registerStrings({
     'home.h1b': 'بمكان واحد',
     'home.h1c': 'وتعرف قبل لا تقسّط إذا تقدر.',
     'home.lead': 'اجمع أقساطك من كل الجهات، وشوف كم تاخذ من راتبك، واعرف موعد كل قسط قبل لا يفاجئك. وقبل لا تشتري شي جديد بالتقسيط، نقولك إذا يناسب ميزانيتك ولا لا.',
-    'home.ctaStart': 'ابدأ الحين — بدون تسجيل',
+    'home.ctaStart': 'ابدأ مجاناً — سوّ حسابك',
     'home.ctaContinue': 'كمّل من وين وقفت',
     'home.ctaDash': 'افتح لوحتي',
     'home.ctaLogin': 'دخول',
@@ -143,7 +143,7 @@ registerStrings({
     'home.faqKicker': 'أسئلة تتكرر',
     'home.faqTitle': 'عندك سؤال؟',
     'home.q1': 'لازم أسجّل عشان أستخدمه؟',
-    'home.a1': 'لا. تقدر تبدأ الحين بدون تسجيل وبياناتك تنحفظ بمتصفحك. وإذا سوّيت حساب بعدين، كل أقساطك تنتقل له تلقائياً وتفتحها من أي جهاز.',
+    'home.a1': 'إي، عشان أقساطك تنحفظ بأمان بحسابك وتفتحها من أي جهاز. التسجيل ياخذ ثواني: إيميل وكلمة سر بس، وكلمة السر تنحفظ مشفّرة.',
     'home.q2': 'تربطون حسابي البنكي أو تابي؟',
     'home.a2': 'أبداً. ما نطلب أي رقم حساب أو بطاقة ولا كلمة سر بنك. أنت تكتب المبلغ ويوم الاستحقاق، أو تلصق رسالة البنك ونطلع منها الأرقام.',
     'home.q3': 'وش يعني «الحد الآمن»؟',
@@ -172,7 +172,7 @@ registerStrings({
     'home.h1b': 'in one place',
     'home.h1c': 'and know if you can afford it before you buy.',
     'home.lead': 'Bring every installment together, see how much of your salary they take, and know each due date before it surprises you. Before you buy anything new on installments, we tell you whether it fits your budget.',
-    'home.ctaStart': 'Start now — no sign-up',
+    'home.ctaStart': 'Start free — create your account',
     'home.ctaContinue': 'Pick up where you left off',
     'home.ctaDash': 'Open my dashboard',
     'home.ctaLogin': 'Log in',
@@ -299,7 +299,7 @@ registerStrings({
     'home.faqKicker': 'Questions',
     'home.faqTitle': 'Got a question?',
     'home.q1': 'Do I have to sign up?',
-    'home.a1': 'No. Start right away without an account; your data is saved in this browser. If you create an account later, all your installments move into it and you can open them on any device.',
+    'home.a1': 'Yes — so your installments are stored safely in your account and open on any device. Signing up takes seconds: just an email and a password, and the password is stored encrypted.',
     'home.q2': 'Do you connect to my bank or Tabby?',
     'home.a2': 'Never. We do not ask for any account or card number, or any bank password. You type the amount and due day, or paste a bank SMS and we read the numbers from it.',
     'home.q3': 'What is the “safe limit”?',
@@ -356,9 +356,12 @@ function renderCtas() {
     if (login) { login.href = '/account'; setKey(login, 'home.ctaAccount'); }
     if (finalSignup) { finalSignup.href = '/account'; setKey(finalSignup, 'home.ctaAccount'); }
   } else {
-    const key = st.installments.length ? 'home.ctaContinue' : 'home.ctaStart';
-    setKey(startLabel, key);
-    setKey(finalStart, key);
+    // The app needs an account: «ابدأ» goes straight to sign-up, then on to the dashboard.
+    const start = $('#cta-start');
+    if (start) start.href = '/login?mode=signup&next=/app';
+    if (finalStart) finalStart.href = '/login?mode=signup&next=/app';
+    setKey(startLabel, 'home.ctaStart');
+    setKey(finalStart, 'home.ctaStart');
     if (login) { login.href = '/login'; setKey(login, 'home.ctaLogin'); }
     if (finalSignup) { finalSignup.href = '/login?mode=signup'; setKey(finalSignup, 'home.finalSignup'); }
   }

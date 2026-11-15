@@ -116,24 +116,26 @@ test('mark paid uses the Kuwait month: 01:00 on 1 Dec in Kuwait (22:00 UTC) allo
 
 test('editing an installment can keep its stored first due date even when it is long past', async () => {
   const { call, clock } = await setup();
-  const s = await call('aqsati_add', { p_token: GUEST, ...row({ p_due_day: 14, p_first_due: '2026-11-14' }) });
+  const { cookie } = await call('auth_signup', { email: 'edit@x.com', password: 'password-ok' });
+  const me = { session: cookie }; // the app requires an account for data
+  const s = await call('aqsati_add', row({ p_due_day: 14, p_first_due: '2026-11-14' }), me);
   const id = s.result.installments[0].id;
-  await call('aqsati_mark_paid', { p_token: GUEST, p_id: id, p_month: '2026-11', p_paid: true });
+  await call('aqsati_mark_paid', { p_id: id, p_month: '2026-11', p_paid: true }, me);
   clock.advance(10 * DAY); // now 25 Nov: 2026-11-14 is 11 days back
   const out = await call('aqsati_update', {
-    p_token: GUEST, p_id: id, ...row({ p_title: 'new title', p_due_day: 14, p_first_due: '2026-11-14' }),
-  });
+    p_id: id, ...row({ p_title: 'new title', p_due_day: 14, p_first_due: '2026-11-14' }),
+  }, me);
   const i = out.result.installments[0];
   assert.deepEqual([i.title, i.first_due_date, i.remaining_count], ['new title', '2026-11-14', 3]);
   assert.deepEqual(out.result.payments.map((p) => p.month), ['2026-11'], 'the November mark is kept');
   // Any OTHER old date is still refused.
   await assert.rejects(
-    call('aqsati_update', { p_token: GUEST, p_id: id, ...row({ p_due_day: 14, p_first_due: '2026-11-13' }) }),
+    call('aqsati_update', { p_id: id, ...row({ p_due_day: 14, p_first_due: '2026-11-13' }) }, me),
     { message: 'invalid first due date' },
   );
   // A new installment can't borrow an old date either.
   await assert.rejects(
-    call('aqsati_add', { p_token: GUEST, ...row({ p_first_due: '2026-11-14' }) }),
+    call('aqsati_add', row({ p_first_due: '2026-11-14' }), me),
     { message: 'invalid first due date' },
   );
 });

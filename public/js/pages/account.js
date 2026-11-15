@@ -688,4 +688,4 @@ window.addEventListener('langchange', () => {
 });
 
 render();
-initPage({ active: 'account', title: 'acc.title' }).catch((err) => console.error(err));
+initPage({ active: 'account', requireAuth: true, title: 'acc.title' }).catch((err) => console.error(err));

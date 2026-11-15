@@ -99,19 +99,39 @@ test('mergeGuest ignores bad guest tokens and non-account owners', async () => {
 
 test('handleRpc maps the page calls to the store', async () => {
   const db = createMemoryDb();
-  const ctx = { store: createStore(db, { now }), auth: createAuth(db, { now }) };
+  const store = createStore(db, { now });
+  const auth = createAuth(db, { now, scryptCost: 1024 });
+  let session;
+  const signedUp = await handleRpc({ fn: 'auth_signup', args: { email: 'map@x.com', password: 'password-ok' } },
+    { store, auth, setSession: (tok) => { session = tok; } });
+  assert.deepEqual(signedUp.user, { email: 'map@x.com' });
+  const owner = userOwner((await db.collection('users').findOne({ email: 'map@x.com' }))._id);
+
+  // Signed in: the data calls run on the account's own key (p_token is ignored).
+  const ctx = { store, auth, sessionToken: session };
   await handleRpc({ fn: 'aqsati_save', args: { p_token: TOKEN, p_salary: 800, p_safe_limit: 40 } }, ctx);
   const s = await handleRpc({
     fn: 'aqsati_add',
     args: { p_token: TOKEN, p_provider: 'تمارا', p_title: '', p_monthly: 20, p_due_day: 16, p_remaining: 2, p_first_due: '2026-11-16' },
   }, ctx);
   assert.equal(s.installments.length, 1);
-  assert.equal(s.user, null, 'guests have no user');
+  assert.deepEqual(s.user, { email: 'map@x.com' });
   assert.deepEqual(s.profile, { salary: 800, safe_limit: 40, salary_day: null });
+  assert.deepEqual(await store.state(owner), { profile: s.profile, installments: s.installments, payments: [] }, 'stored under u:<id>');
+  assert.deepEqual(await store.state(TOKEN), { profile: null, installments: [], payments: [] }, 'nothing under the p_token');
   await assert.rejects(handleRpc({ fn: 'drop_everything', args: {} }, ctx), /unknown function/);
   await assert.rejects(handleRpc(null, ctx), /unknown function/);
-  await assert.rejects(handleRpc({ fn: 'aqsati_state', args: { p_token: ACCOUNT } }, ctx), /token required/,
+
+  // A guest: only the empty signed-out STATE, and no writes.
+  const guest = { store, auth };
+  const signedOut = { profile: null, installments: [], payments: [], user: null };
+  assert.deepEqual(await handleRpc({ fn: 'aqsati_state', args: { p_token: TOKEN } }, guest), signedOut, 'guests have no user and no data');
+  assert.deepEqual(await handleRpc({ fn: 'aqsati_state', args: { p_token: owner } }, guest), signedOut,
     'a guest cannot claim an account key through p_token');
+  await assert.rejects(handleRpc({ fn: 'aqsati_save', args: { p_token: owner, p_salary: 900, p_safe_limit: 30 } }, guest),
+    { message: 'not logged in', status: 400 });
+  await assert.rejects(handleRpc({ fn: 'drop_everything', args: {} }, guest), /unknown function/);
+  assert.deepEqual((await store.state(owner)).profile, { salary: 800, safe_limit: 40, salary_day: null }, 'the account is untouched');
 });
 
 // ---------- lib/memorydb.js ----------

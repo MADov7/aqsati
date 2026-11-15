@@ -634,7 +634,7 @@ function bind() {
 // ---------- boot ----------
 
 bind();
-await initPage({ active: 'insights', title: 'nav.insights' });
+await initPage({ active: 'insights', requireAuth: true, title: 'nav.insights' });
 render();
 store.subscribe(render);
 window.addEventListener('langchange', render);

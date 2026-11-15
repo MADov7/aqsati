@@ -772,7 +772,7 @@ bindSalary();
 bindPage();
 renderKicker();
 
-await initPage({ active: 'app', title: 'dash.doc' });
+await initPage({ active: 'app', requireAuth: true, title: 'dash.doc' });
 if (!store.loaded) {
   loadFailed = true;
   render();

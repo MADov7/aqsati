@@ -477,7 +477,7 @@ function bind() {
 
 view.month = initialMonth();
 bind();
-await initPage({ active: 'report', title: 'nav.report' });
+await initPage({ active: 'report', requireAuth: true, title: 'nav.report' });
 render();
 store.subscribe(render);
 window.addEventListener('langchange', render);

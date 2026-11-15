@@ -684,7 +684,7 @@ function prefillFromUrl() {
 store.subscribe(render);
 fillProviders();
 bind();
-await initPage({ active: 'check', title: 'chk.doc' });
+await initPage({ active: 'check', requireAuth: true, title: 'chk.doc' });
 if (!store.loaded) {
   loadFailed = true;
   render();

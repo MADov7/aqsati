@@ -568,7 +568,7 @@ function bind() {
 
 view.month = initialMonth();
 bind();
-await initPage({ active: 'calendar', title: 'nav.calendar' });
+await initPage({ active: 'calendar', requireAuth: true, title: 'nav.calendar' });
 view.selected = defaultSelection(view.month);
 render();
 store.subscribe(render);

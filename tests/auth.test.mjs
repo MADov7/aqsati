@@ -28,12 +28,27 @@ async function setup({ scryptCost } = {}) {
     });
     return { result, cookie };
   };
-  return { db, store, auth, clock, call };
+  // Same, for calls expected to fail: → { error, cookie } (the cookie may be cleared on the way out).
+  const fail = async (fn, args = {}, { session = null, ip = '10.0.0.1' } = {}) => {
+    let cookie;
+    try {
+      await handleRpc({ fn, args }, { store, auth, sessionToken: session, ip, setSession: (tok) => { cookie = tok; } });
+    } catch (error) {
+      return { error, cookie };
+    }
+    throw new Error(`${fn} should have failed`);
+  };
+  return { db, store, auth, clock, call, fail };
 }
 
 const inst = (provider) => ({
   p_provider: provider, p_title: '', p_monthly: 10, p_due_day: 20, p_remaining: 3, p_first_due: '2026-11-20',
 });
+// The same installment in the shape lib/store.js takes. Guests can no longer write through the RPC, so "old guest
+// data" (saved before the app required an account) is seeded straight into the database with the store.
+const guestRow = (provider) => ({ provider, title: '', monthly: 10, dueDay: 20, remaining: 3, firstDue: '2026-11-20' });
+const SIGNED_OUT = { profile: null, installments: [], payments: [], user: null };
+const pairs = (payments) => payments.map((p) => [p.installment_id, p.month]);
 
 test('signup sets a session cookie and answers STATE with the user', async () => {
   const { call, db } = await setup();
@@ -262,7 +277,7 @@ test('session expiry is enforced in code (TTL deletion is lazy)', async () => {
   clock.advance(DAY + 1000);
   assert.equal(await db.collection('sessions').countDocuments({}), 1, 'the expired session doc still exists');
   const after = await call('aqsati_state', { p_token: GUEST }, { session: cookie });
-  assert.deepEqual(after.result, { profile: null, installments: [], payments: [], user: null }, 'falls back to the guest');
+  assert.deepEqual(after.result, SIGNED_OUT, 'falls back to the signed-out STATE, like a guest');
   assert.equal(after.cookie, null, 'the stale cookie is cleared');
   assert.equal(await auth.sessionUser(cookie), null);
   assert.equal(await db.collection('sessions').countDocuments({}), 0, 'and the expired doc is removed');
@@ -290,18 +305,19 @@ test('logout deletes the session and clears the cookie', async () => {
 
 test('signup/login moves the guest data into the account (profile only if the account has none)', async () => {
   const { call, store } = await setup();
-  await call('aqsati_save', { p_token: GUEST, p_salary: 1000, p_safe_limit: 35 });
-  await call('aqsati_add', { p_token: GUEST, ...inst('تابي') });
-  await call('aqsati_add', { p_token: GUEST, ...inst('تمارا') });
+  // Old guest data, saved by this browser before the app required an account.
+  await store.save(GUEST, { salary: 1000, safeLimit: 35 });
+  await store.add(GUEST, guestRow('تابي'));
+  await store.add(GUEST, guestRow('تمارا'));
 
   const signup = await call('auth_signup', { email: 'm@x.com', password: 'password-ok', p_token: GUEST });
   assert.deepEqual(signup.result.profile, { salary: 1000, safe_limit: 35, salary_day: null });
   assert.deepEqual(signup.result.installments.map((i) => i.provider), ['تابي', 'تمارا']);
   assert.deepEqual(await store.state(GUEST), { profile: null, installments: [], payments: [] }, 'nothing left under the guest key');
 
-  // Another browser, used as a guest, then logs in to the same account.
-  await call('aqsati_save', { p_token: GUEST2, p_salary: 500, p_safe_limit: 20 });
-  await call('aqsati_add', { p_token: GUEST2, ...inst('ديما') });
+  // Another browser with old guest data then logs in to the same account.
+  await store.save(GUEST2, { salary: 500, safeLimit: 20 });
+  await store.add(GUEST2, guestRow('ديما'));
   const login = await call('auth_login', { email: 'm@x.com', password: 'password-ok', p_token: GUEST2 });
   assert.deepEqual(login.result.profile, { salary: 1000, safe_limit: 35, salary_day: null }, 'the account profile wins');
   assert.deepEqual(login.result.installments.map((i) => i.provider), ['تابي', 'تمارا', 'ديما']);
@@ -319,7 +335,7 @@ test('guest merge never takes the account past 50 installments (oldest move firs
   for (let i = 0; i < 48; i++) await call('aqsati_add', { p_token: GUEST, ...inst(`acc${i}`) }, { session: cookie });
   assert.deepEqual(await store.state(GUEST), { profile: null, installments: [], payments: [] }, 'with a session, p_token is ignored');
 
-  for (const name of ['old', 'mid', 'new']) await call('aqsati_add', { p_token: GUEST2, ...inst(name) });
+  for (const name of ['old', 'mid', 'new']) await store.add(GUEST2, guestRow(name)); // old guest data, oldest first
   const login = await call('auth_login', { email: 'cap@x.com', password: 'password-ok', p_token: GUEST2 });
   assert.equal(login.result.installments.length, 50);
   assert.deepEqual(login.result.installments.slice(-2).map((i) => i.provider), ['old', 'mid']);
@@ -337,24 +353,125 @@ test('another user cannot see, edit or remove my data', async () => {
 
   const seenByB = await call('aqsati_state', { p_token: GUEST }, { session: b.cookie });
   assert.deepEqual(seenByB.result, { profile: null, installments: [], payments: [], user: { email: 'b@x.com' } });
-  await call('aqsati_update', { p_token: GUEST, p_id: id, ...inst('hacked') }, { session: b.cookie });
+  const edited = await call('aqsati_update', { p_token: GUEST, p_id: id, ...inst('hacked') }, { session: b.cookie });
+  assert.deepEqual(edited.result.installments, [], 'B only ever gets B\'s own STATE back');
   await call('aqsati_remove', { p_token: GUEST, p_id: id }, { session: b.cookie });
-  await call('aqsati_update', { p_token: GUEST, p_id: id, ...inst('hacked') }); // as a guest
-  await call('aqsati_remove', { p_token: GUEST, p_id: id });
+  for (const [fn, args] of [['aqsati_update', { p_token: GUEST, p_id: id, ...inst('hacked') }], ['aqsati_remove', { p_token: GUEST, p_id: id }]]) {
+    await assert.rejects(call(fn, args), { message: 'not logged in', status: 400 }, `${fn} as a guest`);
+  }
 
   const mine = await call('aqsati_state', {}, { session: a.cookie });
   assert.deepEqual(mine.result.installments.map((i) => i.provider), ['تابي']);
   assert.deepEqual(mine.result.profile, { salary: 900, safe_limit: 40, salary_day: null });
-  assert.deepEqual((await call('aqsati_state', { p_token: GUEST })).result, { profile: null, installments: [], payments: [], user: null });
+  assert.deepEqual((await call('aqsati_state', { p_token: GUEST })).result, SIGNED_OUT);
 
   const owner = await db.collection('users').findOne({ email: 'a@x.com' });
-  for (const fn of ['aqsati_state', 'aqsati_remove']) {
-    await assert.rejects(call(fn, { p_token: `u:${owner._id}`, p_id: id }), { message: 'token required' },
-      'an account key cannot be used as a guest token');
-  }
+  const accountKey = `u:${owner._id}`;
+  assert.deepEqual((await call('aqsati_state', { p_token: accountKey })).result, SIGNED_OUT,
+    'an account key sent as a guest token reads nothing');
+  await assert.rejects(call('aqsati_remove', { p_token: accountKey, p_id: id }), { message: 'not logged in' },
+    'and removes nothing');
+  assert.deepEqual((await call('aqsati_state', {}, { session: a.cookie })).result.installments.map((i) => i.id), [id]);
   const garbage = await call('aqsati_state', { p_token: GUEST }, { session: 'forged-or-garbage' });
   assert.equal(garbage.result.user, null, 'a forged cookie is not a session');
   assert.equal(garbage.cookie, null);
+});
+
+// ---------- the app requires an account: what a visitor without a live session gets ----------
+
+const WRITES = ['aqsati_save', 'aqsati_add', 'aqsati_update', 'aqsati_remove', 'aqsati_mark_paid'];
+// Well-formed arguments for every write, so the only thing wrong with a guest's call is the missing session.
+const writeArgs = (id) => ({
+  aqsati_save: { p_token: GUEST, p_salary: 900, p_safe_limit: 40, p_salary_day: 25 },
+  aqsati_add: { p_token: GUEST, ...inst('تابي') },
+  aqsati_update: { p_token: GUEST, p_id: id, ...inst('hacked') },
+  aqsati_remove: { p_token: GUEST, p_id: id },
+  aqsati_mark_paid: { p_token: GUEST, p_id: id, p_month: '2026-11', p_paid: true },
+});
+// Every row of the data collections, to prove that a refused call wrote nothing.
+async function snapshot(db) {
+  const out = {};
+  for (const name of ['profiles', 'installments', 'payments']) {
+    out[name] = await db.collection(name).find({}).sort({ _id: 1 }).toArray();
+  }
+  return out;
+}
+
+test('a guest (no session) gets the signed-out STATE from aqsati_state — no error, and old guest data stays hidden and untouched', async () => {
+  const { call, store, auth, db } = await setup();
+  assert.deepEqual(await call('aqsati_state', {}), { result: SIGNED_OUT, cookie: undefined }, 'no cookie is set or cleared');
+  assert.deepEqual(await handleRpc({ fn: 'aqsati_state' }, { store, auth }), SIGNED_OUT, 'no args and no setSession are fine too');
+
+  // Old guest data (saved before accounts were required) is not shown to a guest read…
+  await store.save(GUEST, { salary: 1000, safeLimit: 35, salaryDay: 27 });
+  const id = (await store.add(GUEST, guestRow('تابي'))).installments[0].id;
+  await store.markPaid(GUEST, id, '2026-11', true);
+  const before = await snapshot(db);
+  for (const args of [{ p_token: GUEST }, { p_token: GUEST.toUpperCase() }, { p_token: 'not-a-uuid' }, { p_token: { $ne: null } }, {}]) {
+    const read = await call('aqsati_state', args);
+    assert.deepEqual([read.result, read.cookie], [SIGNED_OUT, undefined], JSON.stringify(args));
+  }
+  assert.deepEqual(await snapshot(db), before, 'reading as a guest changes nothing');
+
+  // …and is all still there for the account that signs up from this browser.
+  const su = await call('auth_signup', { email: 'keep@x.com', password: 'password-ok', p_token: GUEST });
+  assert.deepEqual(su.result.profile, { salary: 1000, safe_limit: 35, salary_day: 27 });
+  assert.deepEqual(su.result.installments.map((i) => i.id), [id]);
+  assert.deepEqual(pairs(su.result.payments), [[id, '2026-11']]);
+});
+
+test("a guest (no session) calling any write gets 400 'not logged in' — whatever the arguments — and nothing is written", async () => {
+  const { fail, store, db } = await setup();
+  // An old guest installment + profile: if a guest write got through, it would change these.
+  await store.save(GUEST, { salary: 500, safeLimit: 20 });
+  const id = (await store.add(GUEST, guestRow('تابي'))).installments[0].id;
+  const before = await snapshot(db);
+  const args = writeArgs(id);
+  for (const fn of WRITES) {
+    const r = await fail(fn, args[fn]);
+    assert.deepEqual([r.error.name, r.error.message, r.error.status, r.cookie], ['InputError', 'not logged in', 400, undefined], fn);
+    // The login check comes first: no token, a bad token or bad input all get the same answer (no validation hints).
+    for (const extra of [{ p_token: undefined }, { p_token: `u:${id}` }, { p_id: 'abc', p_month: '1999-01', p_salary: -1, p_provider: { $gt: '' } }]) {
+      assert.equal((await fail(fn, { ...args[fn], ...extra })).error.message, 'not logged in', `${fn} ${JSON.stringify(extra)}`);
+    }
+    assert.equal((await fail(fn, {})).error.message, 'not logged in', `${fn} with no args`);
+  }
+  assert.deepEqual(await snapshot(db), before, 'nothing was written');
+});
+
+test('an expired, logged-out or forged cookie behaves like a guest (and the browser is told to drop it)', async () => {
+  const { call, fail, clock, db } = await setup();
+  const live = await call('auth_signup', { email: 'dead@x.com', password: 'password-ok' });
+  await call('aqsati_save', { p_salary: 700, p_safe_limit: 40 }, { session: live.cookie });
+  const id = (await call('aqsati_add', inst('تابي'), { session: live.cookie })).result.installments[0].id;
+  await call('aqsati_mark_paid', { p_id: id, p_month: '2026-11', p_paid: true }, { session: live.cookie });
+  const loggedOut = (await call('auth_login', { email: 'dead@x.com', password: 'password-ok' })).cookie;
+  await call('auth_logout', {}, { session: loggedOut });
+  const before = await snapshot(db);
+  const args = writeArgs(id); // aimed at the account's own installment
+
+  const actsAsGuest = async (session, label) => {
+    const read = await call('aqsati_state', { p_token: GUEST }, { session });
+    assert.deepEqual([read.result, read.cookie], [SIGNED_OUT, null], `${label}: aqsati_state → signed-out STATE, cookie cleared`);
+    for (const fn of WRITES) {
+      const r = await fail(fn, args[fn], { session });
+      assert.deepEqual([r.error.message, r.error.status, r.cookie], ['not logged in', 400, null], `${label}: ${fn}`);
+    }
+  };
+  await actsAsGuest(loggedOut, 'logged-out cookie');
+  await actsAsGuest('forged-or-garbage', 'forged cookie');
+  await actsAsGuest('x'.repeat(43), 'well-formed but unknown cookie');
+  assert.deepEqual(await snapshot(db), before, 'none of them wrote anything');
+  assert.deepEqual((await call('aqsati_state', {}, { session: live.cookie })).result.user, { email: 'dead@x.com' }, 'the live session still works');
+
+  clock.advance(30 * DAY + 1000); // the first session is now past its 30 days
+  await actsAsGuest(live.cookie, 'expired cookie');
+  assert.deepEqual(await snapshot(db), before, 'the expired cookie wrote nothing either');
+
+  const back = await call('auth_login', { email: 'dead@x.com', password: 'password-ok' });
+  assert.deepEqual(back.result.profile, { salary: 700, safe_limit: 40, salary_day: null }, 'the account data is untouched');
+  assert.deepEqual(back.result.installments.map((i) => [i.id, i.provider]), [[id, 'تابي']]);
+  assert.deepEqual(pairs(back.result.payments), [[id, '2026-11']]);
 });
 
 // ---------- HTTP layer: lib/rpc.js default export with fake req/res ----------
@@ -438,7 +555,9 @@ test('HTTP: without MONGODB_URI (and no memory mode) → 500 config', { skip: Bo
   }
 });
 
-test('HTTP (memory mode): signup cookie → state → logout, end to end', async () => {
+// Runs fn(warnings) against the HTTP handler in memory mode. The in-memory database lives for the whole process,
+// so every memory-mode test in this file shares it: each one uses its own emails.
+async function withMemoryMode(fn) {
   const savedEnv = process.env.AQSATI_MEMORY_DB;
   const savedVercel = process.env.VERCEL;
   const realWarn = console.warn;
@@ -447,48 +566,96 @@ test('HTTP (memory mode): signup cookie → state → logout, end to end', async
   delete process.env.VERCEL;
   console.warn = (...a) => warnings.push(a.join(' '));
   try {
-    const origin = { origin: 'http://localhost:3000', 'sec-fetch-site': 'same-origin' };
-    let res = await hit({ headers: origin, body: { fn: 'aqsati_save', args: { p_token: GUEST, p_salary: 650, p_safe_limit: 40 } } });
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.body, { profile: { salary: 650, safe_limit: 40, salary_day: null }, installments: [], payments: [], user: null });
-    assert.ok(warnings.some((w) => /memory mode/i.test(w)), 'memory mode logs a clear warning');
-
-    res = await hit({ headers: origin, body: { fn: 'auth_signup', args: { email: 'http@x.com', password: 'password-ok', p_token: GUEST } } });
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.body, { profile: { salary: 650, safe_limit: 40, salary_day: null }, installments: [], payments: [], user: { email: 'http@x.com' } });
-    const setCookie = res.headers['set-cookie'];
-    assert.match(setCookie, /^aqsati_session=[A-Za-z0-9_-]{43}; HttpOnly; Path=\/; SameSite=Lax; Max-Age=2592000$/);
-    const token = cookieValue(setCookie);
-
-    res = await hit({ headers: { cookie: `theme=dark; aqsati_session=${token}` }, body: { fn: 'aqsati_state', args: { p_token: GUEST2 } } });
-    assert.deepEqual(res.body.user, { email: 'http@x.com' });
-    assert.deepEqual(res.body.profile, { salary: 650, safe_limit: 40, salary_day: null });
-    assert.equal(res.headers['set-cookie'], undefined);
-
-    res = await hit({ headers: { cookie: `aqsati_session=${token}` }, body: { fn: 'auth_login', args: { email: 'http@x.com', password: 'bad-password' } } });
-    assert.deepEqual([res.statusCode, res.body], [400, { message: 'invalid credentials' }]);
-
-    res = await hit({ headers: { cookie: `aqsati_session=${token}`, 'x-forwarded-proto': 'https' }, body: { fn: 'auth_logout', args: {} } });
-    assert.deepEqual(res.body, { profile: null, installments: [], payments: [], user: null });
-    assert.equal(res.headers['set-cookie'], 'aqsati_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0; Secure');
-
-    res = await hit({ headers: { cookie: `aqsati_session=${token}` }, body: { fn: 'aqsati_state', args: { p_token: GUEST2 } } });
-    assert.equal(res.body.user, null, 'the logged-out cookie is dead');
-    assert.match(res.headers['set-cookie'], /Max-Age=0/, 'and the browser is told to drop it');
-
-    // sendBeacon on pagehide: same origin, Blob type application/json → still accepted.
-    res = await hit({ headers: { ...origin, 'content-type': 'application/json' }, body: { fn: 'aqsati_remove', args: { p_token: GUEST2, p_id: GUEST } } });
-    assert.equal(res.statusCode, 200);
-
-    res = await hit({ headers: { 'x-forwarded-proto': 'https' }, body: { fn: 'auth_login', args: { email: 'http@x.com', password: 'password-ok' } } });
-    assert.match(res.headers['set-cookie'], /; Secure$/, 'HTTPS → Secure cookie');
+    await fn(warnings);
   } finally {
     console.warn = realWarn;
     if (savedEnv === undefined) delete process.env.AQSATI_MEMORY_DB;
     else process.env.AQSATI_MEMORY_DB = savedEnv;
     if (savedVercel !== undefined) process.env.VERCEL = savedVercel;
   }
-});
+}
+
+test('HTTP (memory mode): signup cookie → state → logout, end to end', () => withMemoryMode(async (warnings) => {
+  const origin = { origin: 'http://localhost:3000', 'sec-fetch-site': 'same-origin' };
+  let res = await hit({ headers: origin, body: { fn: 'aqsati_state', args: { p_token: GUEST } } });
+  assert.deepEqual([res.statusCode, res.body, res.headers['set-cookie']], [200, SIGNED_OUT, undefined], 'a visitor reads the signed-out STATE');
+  assert.ok(warnings.some((w) => /memory mode/i.test(w)), 'memory mode logs a clear warning');
+  res = await hit({ headers: origin, body: { fn: 'aqsati_save', args: { p_token: GUEST, p_salary: 650, p_safe_limit: 40 } } });
+  assert.deepEqual([res.statusCode, res.body], [400, { message: 'not logged in' }], 'but cannot save as a guest');
+
+  res = await hit({ headers: origin, body: { fn: 'auth_signup', args: { email: 'http@x.com', password: 'password-ok', p_token: GUEST } } });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { profile: null, installments: [], payments: [], user: { email: 'http@x.com' } }, 'the refused guest save left nothing to merge');
+  const setCookie = res.headers['set-cookie'];
+  assert.match(setCookie, /^aqsati_session=[A-Za-z0-9_-]{43}; HttpOnly; Path=\/; SameSite=Lax; Max-Age=2592000$/);
+  const token = cookieValue(setCookie);
+
+  res = await hit({ headers: { ...origin, cookie: `aqsati_session=${token}` }, body: { fn: 'aqsati_save', args: { p_token: GUEST2, p_salary: 650, p_safe_limit: 40 } } });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { profile: { salary: 650, safe_limit: 40, salary_day: null }, installments: [], payments: [], user: { email: 'http@x.com' } });
+  assert.equal(res.headers['set-cookie'], undefined);
+
+  res = await hit({ headers: { cookie: `theme=dark; aqsati_session=${token}` }, body: { fn: 'aqsati_state', args: { p_token: GUEST2 } } });
+  assert.deepEqual(res.body.user, { email: 'http@x.com' });
+  assert.deepEqual(res.body.profile, { salary: 650, safe_limit: 40, salary_day: null });
+  assert.equal(res.headers['set-cookie'], undefined);
+
+  // sendBeacon on pagehide: same origin, Blob type application/json, session cookie → still accepted.
+  res = await hit({ headers: { ...origin, cookie: `aqsati_session=${token}`, 'content-type': 'application/json' }, body: { fn: 'aqsati_remove', args: { p_id: GUEST } } });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.user, { email: 'http@x.com' });
+
+  res = await hit({ headers: { cookie: `aqsati_session=${token}` }, body: { fn: 'auth_login', args: { email: 'http@x.com', password: 'bad-password' } } });
+  assert.deepEqual([res.statusCode, res.body], [400, { message: 'invalid credentials' }]);
+
+  res = await hit({ headers: { cookie: `aqsati_session=${token}`, 'x-forwarded-proto': 'https' }, body: { fn: 'auth_logout', args: {} } });
+  assert.deepEqual(res.body, SIGNED_OUT);
+  assert.equal(res.headers['set-cookie'], 'aqsati_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0; Secure');
+
+  res = await hit({ headers: { cookie: `aqsati_session=${token}` }, body: { fn: 'aqsati_state', args: { p_token: GUEST2 } } });
+  assert.deepEqual([res.statusCode, res.body], [200, SIGNED_OUT], 'the logged-out cookie is dead');
+  assert.match(res.headers['set-cookie'], /Max-Age=0/, 'and the browser is told to drop it');
+  res = await hit({ headers: { ...origin, cookie: `aqsati_session=${token}` }, body: { fn: 'aqsati_remove', args: { p_id: GUEST } } });
+  assert.deepEqual([res.statusCode, res.body], [400, { message: 'not logged in' }], 'a dead cookie cannot write');
+  assert.match(res.headers['set-cookie'], /Max-Age=0/);
+
+  res = await hit({ headers: { 'x-forwarded-proto': 'https' }, body: { fn: 'auth_login', args: { email: 'http@x.com', password: 'password-ok' } } });
+  assert.match(res.headers['set-cookie'], /; Secure$/, 'HTTPS → Secure cookie');
+  assert.deepEqual(res.body.profile, { salary: 650, safe_limit: 40, salary_day: null }, 'the account data survived the logout');
+}));
+
+test("HTTP (memory mode): a guest or a dead cookie gets 200 + signed-out STATE from aqsati_state and 400 'not logged in' from every write", () => withMemoryMode(async () => {
+  const origin = { origin: 'http://localhost:3000', 'sec-fetch-site': 'same-origin' };
+  const args = writeArgs(GUEST2); // any well-formed installment id
+  const actsAsGuest = async (cookieHeader, label) => {
+    const headers = cookieHeader ? { ...origin, cookie: cookieHeader } : origin;
+    const dropped = cookieHeader ? 'aqsati_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0' : undefined;
+    let res = await hit({ headers, body: { fn: 'aqsati_state', args: { p_token: GUEST } } });
+    assert.deepEqual([res.statusCode, res.body, res.headers['set-cookie']], [200, SIGNED_OUT, dropped], `${label}: aqsati_state`);
+    for (const fn of WRITES) {
+      res = await hit({ headers, body: { fn, args: args[fn] } });
+      assert.deepEqual([res.statusCode, res.body, res.headers['set-cookie']], [400, { message: 'not logged in' }, dropped], `${label}: ${fn}`);
+      assert.equal(res.headers['cache-control'], 'no-store');
+    }
+  };
+
+  await actsAsGuest(null, 'guest');
+  // Signing up from this browser brings nothing along: none of those guest writes were stored.
+  let res = await hit({ headers: origin, body: { fn: 'auth_signup', args: { email: 'http-guest@x.com', password: 'password-ok', p_token: GUEST } } });
+  assert.deepEqual([res.statusCode, res.body], [200, { profile: null, installments: [], payments: [], user: { email: 'http-guest@x.com' } }]);
+  const token = cookieValue(res.headers['set-cookie']);
+
+  res = await hit({ headers: { ...origin, cookie: `aqsati_session=${token}` }, body: { fn: 'aqsati_save', args: { p_salary: 900, p_safe_limit: 30 } } });
+  assert.deepEqual([res.statusCode, res.body.user], [200, { email: 'http-guest@x.com' }], 'the same call works once signed in');
+  res = await hit({ headers: { cookie: `aqsati_session=${token}` }, body: { fn: 'auth_logout', args: {} } });
+  assert.equal(res.statusCode, 200);
+
+  await actsAsGuest(`aqsati_session=${token}`, 'logged-out cookie');
+  await actsAsGuest(`aqsati_session=${'z'.repeat(43)}`, 'unknown cookie');
+
+  res = await hit({ headers: origin, body: { fn: 'auth_login', args: { email: 'http-guest@x.com', password: 'password-ok' } } });
+  assert.deepEqual(res.body.profile, { salary: 900, safe_limit: 30, salary_day: null }, 'the dead-cookie writes changed nothing');
+}));
 
 test('cookie helpers', () => {
   const c = parseCookies('a=1; aqsati_session=first; aqsati_session=second; junk; =x; q="quoted"; pct=%E0%A4%A; sp=a%20b');

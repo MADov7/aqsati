@@ -46,24 +46,34 @@ async function setup() {
     }
     throw new Error(`${fn} should have failed`);
   };
-  return { db, store, auth, clock, call, fail };
+  // The app requires an account for data: signs up → { cookie, owner, as } (`as` = call options for this session).
+  const account = async (email) => {
+    const { cookie } = await call('auth_signup', { email, password: 'password-ok' });
+    const user = await db.collection('users').findOne({ email });
+    return { cookie, owner: userOwner(user._id), as: { session: cookie } };
+  };
+  return { db, store, auth, clock, call, fail, account };
 }
 
 const inst = (provider) => ({
   p_provider: provider, p_title: '', p_monthly: 10, p_due_day: 20, p_remaining: 3, p_first_due: '2026-11-20',
 });
+// The same installment in the shape lib/store.js takes. Guests can no longer write through the RPC, so "old guest
+// data" (saved before the app required an account) is seeded straight into the database with the store.
+const guestRow = (provider) => ({ provider, title: '', monthly: 10, dueDay: 20, remaining: 3, firstDue: '2026-11-20' });
 const pairs = (payments) => payments.map((p) => [p.installment_id, p.month]);
 const months = (payments) => payments.map((p) => p.month);
 
 // ---------- salary day ----------
 
 test('salary_day: saved, cleared, kept when not sent', async () => {
-  const { call } = await setup();
-  const save = async (extra) => (await call('aqsati_save', { p_token: GUEST, p_salary: 1200, p_safe_limit: 40, ...extra })).result;
+  const { call, account } = await setup();
+  const me = await account('sd@x.com');
+  const save = async (extra) => (await call('aqsati_save', { p_salary: 1200, p_safe_limit: 40, ...extra }, me.as)).result;
 
   assert.deepEqual((await save({})).profile, { salary: 1200, safe_limit: 40, salary_day: null }, 'no salary day yet');
   assert.equal((await save({ p_salary_day: 25 })).profile.salary_day, 25);
-  const kept = (await call('aqsati_save', { p_token: GUEST, p_salary: 1300, p_safe_limit: 35 })).result;
+  const kept = (await call('aqsati_save', { p_salary: 1300, p_safe_limit: 35 }, me.as)).result;
   assert.deepEqual(kept.profile, { salary: 1300, safe_limit: 35, salary_day: 25 }, 'not sent → the stored day is kept');
 
   for (const [input, want] of [['١', 1], [' 31 ', 31], ['٢٧', 27], [28, 28], ['7', 7]]) {
@@ -75,28 +85,30 @@ test('salary_day: saved, cleared, kept when not sent', async () => {
 });
 
 test('salary_day: anything but a whole day 1..31 → invalid salary day, and nothing is saved', async () => {
-  const { call, store } = await setup();
-  await call('aqsati_save', { p_token: GUEST, p_salary: 900, p_safe_limit: 40, p_salary_day: 5 });
+  const { call, store, account } = await setup();
+  const me = await account('sd2@x.com');
+  await call('aqsati_save', { p_salary: 900, p_safe_limit: 40, p_salary_day: 5 }, me.as);
   for (const bad of [0, 32, -1, 1.5, '1.5', 'abc', '15th', '1e1', Infinity, NaN, true, false, { $gt: 0 }, [5], {}]) {
-    await assert.rejects(call('aqsati_save', { p_token: GUEST, p_salary: 2000, p_safe_limit: 50, p_salary_day: bad }),
+    await assert.rejects(call('aqsati_save', { p_salary: 2000, p_safe_limit: 50, p_salary_day: bad }, me.as),
       { message: 'invalid salary day', status: 400 }, String(bad));
   }
-  assert.deepEqual((await store.state(GUEST)).profile, { salary: 900, safe_limit: 40, salary_day: 5 });
-  await assert.rejects(call('aqsati_save', { p_token: GUEST, p_salary: 0, p_safe_limit: 40, p_salary_day: 5 }), { message: 'invalid salary' });
+  assert.deepEqual((await store.state(me.owner)).profile, { salary: 900, safe_limit: 40, salary_day: 5 });
+  await assert.rejects(call('aqsati_save', { p_salary: 0, p_safe_limit: 40, p_salary_day: 5 }, me.as), { message: 'invalid salary' });
 });
 
 // ---------- aqsati_mark_paid ----------
 
 test('mark paid: mark, mark again (idempotent), unmark — STATE.payments', async () => {
-  const { call, db } = await setup();
-  const added = (await call('aqsati_add', { p_token: GUEST, ...inst('تابي') })).result;
+  const { call, db, account } = await setup();
+  const me = await account('mp@x.com');
+  const added = (await call('aqsati_add', inst('تابي'), me.as)).result;
   assert.deepEqual(added.payments, []);
   const id = added.installments[0].id;
-  const mark = async (month, paid, token = GUEST, pid = id) =>
-    (await call('aqsati_mark_paid', { p_token: token, p_id: pid, p_month: month, p_paid: paid })).result;
+  const mark = async (month, paid, pid = id) =>
+    (await call('aqsati_mark_paid', { p_id: pid, p_month: month, p_paid: paid }, me.as)).result;
 
   let s = await mark('2026-11', true);
-  assert.equal(s.user, null);
+  assert.deepEqual(s.user, { email: 'mp@x.com' });
   assert.equal(s.payments.length, 1);
   const [row] = s.payments;
   assert.deepEqual(Object.keys(row).sort(), ['installment_id', 'month', 'paid_at']);
@@ -109,10 +121,10 @@ test('mark paid: mark, mark again (idempotent), unmark — STATE.payments', asyn
   assert.equal(await payments.countDocuments({}), 1);
   assert.deepEqual(
     await payments.findOne({}),
-    { _id: `${GUEST}|${id}|2026-11`, token: GUEST, installmentId: id, month: '2026-11', paidAt: new Date(row.paid_at) },
+    { _id: `${me.owner}|${id}|2026-11`, token: me.owner, installmentId: id, month: '2026-11', paidAt: new Date(row.paid_at) },
   );
 
-  s = await mark('2026-10', true, GUEST.toUpperCase(), id.toUpperCase());
+  s = await mark('2026-10', true, id.toUpperCase());
   assert.deepEqual(months(s.payments), ['2026-10', '2026-11'], 'upper-case ids are normalised; sorted by month');
 
   s = await mark('2026-11', false);
@@ -123,9 +135,10 @@ test('mark paid: mark, mark again (idempotent), unmark — STATE.payments', asyn
 });
 
 test('mark paid validates the month window, the id and the paid flag', async () => {
-  const { call, db } = await setup();
-  const id = (await call('aqsati_add', { p_token: GUEST, ...inst('تمارا') })).result.installments[0].id;
-  const mark = (extra) => call('aqsati_mark_paid', { p_token: GUEST, p_id: id, p_month: '2026-11', p_paid: true, ...extra });
+  const { call, db, account } = await setup();
+  const me = await account('mv1@x.com');
+  const id = (await call('aqsati_add', inst('تمارا'), me.as)).result.installments[0].id;
+  const mark = (extra, opts = me.as) => call('aqsati_mark_paid', { p_id: id, p_month: '2026-11', p_paid: true, ...extra }, opts);
 
   assert.equal(PAYMENT_MONTHS_BACK, 24);
   assert.equal(PAYMENT_MONTHS_AHEAD, 1);
@@ -144,8 +157,10 @@ test('mark paid validates the month window, the id and the paid flag', async () 
   for (const p_paid of ['true', 1, 0, null, undefined, {}, [], 'yes']) {
     await assert.rejects(mark({ p_paid }), { message: 'invalid paid' }, JSON.stringify(p_paid));
   }
-  await assert.rejects(mark({ p_token: undefined }), { message: 'token required' });
-  await assert.rejects(mark({ p_token: { $ne: null } }), { message: 'token required' });
+  // Without a session the answer is 'not logged in', whatever the arguments: the login check comes first.
+  for (const extra of [{}, { p_token: GUEST }, { p_token: undefined }, { p_token: { $ne: null } }, { p_month: '1999-12' }, { p_paid: 'yes' }, { p_id: 'abc' }]) {
+    await assert.rejects(mark(extra, {}), { message: 'not logged in', status: 400 }, JSON.stringify(extra));
+  }
   assert.equal(await db.collection('payments').countDocuments({}), 3, 'only the three valid marks were written');
 });
 
@@ -159,11 +174,15 @@ test('mark paid only touches MY installments — other accounts and guests chang
   const bInst = (await call('aqsati_add', inst('ديما'), { session: b.cookie })).result.installments[0].id;
   await call('aqsati_mark_paid', { p_id: bInst, p_month: '2026-11', p_paid: true }, { session: b.cookie });
 
-  for (const who of [{ session: b.cookie }, {}]) { // another account, then a guest
-    const args = { p_token: GUEST, p_id: mine, p_month: '2026-10', p_paid: true };
-    const out = (await call('aqsati_mark_paid', args, who)).result;
-    assert.ok(out.payments.every((p) => p.installment_id !== mine), 'my rows never show up for them');
-    await call('aqsati_mark_paid', { ...args, p_month: '2026-11', p_paid: false }, who);
+  // Another account: its calls answer with its own STATE and never touch my rows.
+  const args = { p_token: GUEST, p_id: mine, p_month: '2026-10', p_paid: true };
+  const out = (await call('aqsati_mark_paid', args, { session: b.cookie })).result;
+  assert.ok(out.payments.every((p) => p.installment_id !== mine), 'my rows never show up for them');
+  await call('aqsati_mark_paid', { ...args, p_month: '2026-11', p_paid: false }, { session: b.cookie });
+  // A guest is not even allowed to try.
+  for (const extra of [{}, { p_month: '2026-11', p_paid: false }]) {
+    const { error, cookie } = await fail('aqsati_mark_paid', { ...args, ...extra });
+    assert.deepEqual([error.message, error.status, cookie], ['not logged in', 400, undefined], JSON.stringify(extra));
   }
   await call('aqsati_mark_paid', { p_id: MISSING_ID, p_month: '2026-11', p_paid: true }, { session: a.cookie });
 
@@ -176,25 +195,28 @@ test('mark paid only touches MY installments — other accounts and guests chang
 
   const owner = await db.collection('users').findOne({ email: 'pa@x.com' });
   const { error } = await fail('aqsati_mark_paid', { p_token: `u:${owner._id}`, p_id: mine, p_month: '2026-11', p_paid: false });
-  assert.equal(error.message, 'token required', 'a guest cannot claim an account key');
+  assert.equal(error.message, 'not logged in', 'a guest cannot claim an account key');
   assert.equal(await db.collection('payments').countDocuments({}), 2);
 });
 
 test('STATE lists only the last 24 months of payments', async () => {
-  const { call, db, clock } = await setup();
-  const id = (await call('aqsati_add', { p_token: GUEST, ...inst('تابي') })).result.installments[0].id;
+  const { call, db, clock, account } = await setup();
+  const me = await account('st@x.com');
+  const id = (await call('aqsati_add', inst('تابي'), me.as)).result.installments[0].id;
   for (const month of ['2024-11', '2026-11', '2026-12']) {
-    await call('aqsati_mark_paid', { p_token: GUEST, p_id: id, p_month: month, p_paid: true });
+    await call('aqsati_mark_paid', { p_id: id, p_month: month, p_paid: true }, me.as);
   }
   // a very old row (e.g. written long ago) is stored but never listed
-  await db.collection('payments').insertOne({ _id: `${GUEST}|${id}|2024-01`, token: GUEST, installmentId: id, month: '2024-01', paidAt: new Date() });
+  await db.collection('payments').insertOne({ _id: `${me.owner}|${id}|2024-01`, token: me.owner, installmentId: id, month: '2024-01', paidAt: new Date() });
 
-  assert.deepEqual(months((await call('aqsati_state', { p_token: GUEST })).result.payments), ['2024-11', '2026-11', '2026-12']);
-  clock.advance(40 * DAY); // → 25 Dec 2026: 2024-11 is now 25 months back
-  assert.deepEqual(months((await call('aqsati_state', { p_token: GUEST })).result.payments), ['2026-11', '2026-12']);
-  await assert.rejects(call('aqsati_mark_paid', { p_token: GUEST, p_id: id, p_month: '2024-11', p_paid: false }), { message: 'invalid month' });
-  await call('aqsati_mark_paid', { p_token: GUEST, p_id: id, p_month: '2027-01', p_paid: true });
-  assert.deepEqual(months((await call('aqsati_state', { p_token: GUEST })).result.payments), ['2026-11', '2026-12', '2027-01']);
+  const listed = async () => months((await call('aqsati_state', {}, me.as)).result.payments);
+  assert.deepEqual(await listed(), ['2024-11', '2026-11', '2026-12']);
+  // → 5 Dec 2026: 2024-11 is now 25 months back (and the 30-day session is still alive)
+  clock.advance(20 * DAY);
+  assert.deepEqual(await listed(), ['2026-11', '2026-12']);
+  await assert.rejects(call('aqsati_mark_paid', { p_id: id, p_month: '2024-11', p_paid: false }, me.as), { message: 'invalid month' });
+  await call('aqsati_mark_paid', { p_id: id, p_month: '2027-01', p_paid: true }, me.as);
+  assert.deepEqual(await listed(), ['2026-11', '2026-12', '2027-01']);
 });
 
 test('mark paid racing a remove of the same installment leaves no orphan row', async () => {
@@ -223,40 +245,47 @@ test('mark paid racing a remove of the same installment leaves no orphan row', a
 // ---------- aqsati_remove cascades ----------
 
 test('removing an installment deletes its payments — only its own, and only by its owner', async () => {
-  const { call, db } = await setup();
-  const add = async (token, name) => (await call('aqsati_add', { p_token: token, ...inst(name) })).result.installments.at(-1).id;
-  const mark = (token, id, month) => call('aqsati_mark_paid', { p_token: token, p_id: id, p_month: month, p_paid: true });
-  const id1 = await add(GUEST, 'تابي');
-  const id2 = await add(GUEST, 'تمارا');
-  const id3 = await add(GUEST2, 'ديما');
-  await mark(GUEST, id1, '2026-10');
-  await mark(GUEST, id1, '2026-11');
-  await mark(GUEST, id2, '2026-11');
-  await mark(GUEST2, id3, '2026-11');
+  const { call, fail, db, account } = await setup();
+  const a = await account('ra@x.com');
+  const b = await account('rb@x.com');
+  const add = async (who, name) => (await call('aqsati_add', inst(name), who.as)).result.installments.at(-1).id;
+  const mark = (who, id, month) => call('aqsati_mark_paid', { p_id: id, p_month: month, p_paid: true }, who.as);
+  const id1 = await add(a, 'تابي');
+  const id2 = await add(a, 'تمارا');
+  const id3 = await add(b, 'ديما');
+  await mark(a, id1, '2026-10');
+  await mark(a, id1, '2026-11');
+  await mark(a, id2, '2026-11');
+  await mark(b, id3, '2026-11');
   const payments = db.collection('payments');
 
-  await call('aqsati_remove', { p_token: GUEST2, p_id: id1 });
+  await call('aqsati_remove', { p_id: id1 }, b.as);
   assert.equal(await payments.countDocuments({ installmentId: id1 }), 2, 'another owner cannot wipe my marks');
-  assert.equal((await call('aqsati_state', { p_token: GUEST })).result.installments.length, 2);
+  const { error } = await fail('aqsati_remove', { p_token: GUEST, p_id: id1 });
+  assert.equal(error.message, 'not logged in', 'a guest cannot even try');
+  assert.equal(await payments.countDocuments({ installmentId: id1 }), 2);
+  assert.equal((await call('aqsati_state', {}, a.as)).result.installments.length, 2);
 
-  const s = (await call('aqsati_remove', { p_token: GUEST, p_id: id1 })).result;
+  const s = (await call('aqsati_remove', { p_id: id1 }, a.as)).result;
   assert.deepEqual(s.installments.map((i) => i.id), [id2]);
   assert.deepEqual(pairs(s.payments), [[id2, '2026-11']]);
   assert.equal(await payments.countDocuments({ installmentId: id1 }), 0);
-  assert.equal(await payments.countDocuments({ token: GUEST2 }), 1, "other owners' marks stay");
+  assert.equal(await payments.countDocuments({ token: b.owner }), 1, "other owners' marks stay");
 });
 
 // ---------- guest merge moves payments ----------
 
 test('signup moves the guest payment marks (and salary day) into the account', async () => {
   const { call, db, store } = await setup();
-  await call('aqsati_save', { p_token: GUEST, p_salary: 1000, p_safe_limit: 35, p_salary_day: 27 });
-  const idA = (await call('aqsati_add', { p_token: GUEST, ...inst('تابي') })).result.installments[0].id;
-  const idB = (await call('aqsati_add', { p_token: GUEST, ...inst('تمارا') })).result.installments[1].id;
+  // Old guest data, saved by this browser before the app required an account.
+  await store.save(GUEST, { salary: 1000, safeLimit: 35, salaryDay: 27 });
+  const idA = (await store.add(GUEST, guestRow('تابي'))).installments[0].id;
+  const idB = (await store.add(GUEST, guestRow('تمارا'))).installments[1].id;
   for (const [id, month] of [[idA, '2026-10'], [idA, '2026-11'], [idB, '2026-11']]) {
-    await call('aqsati_mark_paid', { p_token: GUEST, p_id: id, p_month: month, p_paid: true });
+    await store.markPaid(GUEST, id, month, true);
   }
   const before = (await store.state(GUEST)).payments;
+  assert.equal(before.length, 3);
 
   const su = await call('auth_signup', { email: 'mv@x.com', password: 'password-ok', p_token: GUEST });
   assert.deepEqual(su.result.profile, { salary: 1000, safe_limit: 35, salary_day: 27 });
@@ -279,9 +308,10 @@ test('guest merge past the 50 cap: marks stay with the installments that stay', 
   const { call, store } = await setup();
   const { cookie } = await call('auth_signup', { email: 'cap2@x.com', password: 'password-ok' });
   for (let i = 0; i < 49; i++) await call('aqsati_add', inst(`acc${i}`), { session: cookie });
-  const old = (await call('aqsati_add', { p_token: GUEST2, ...inst('old') })).result.installments[0].id;
-  const neu = (await call('aqsati_add', { p_token: GUEST2, ...inst('new') })).result.installments[1].id;
-  for (const id of [old, neu]) await call('aqsati_mark_paid', { p_token: GUEST2, p_id: id, p_month: '2026-11', p_paid: true });
+  // Old guest data from another browser, oldest first.
+  const old = (await store.add(GUEST2, guestRow('old'))).installments[0].id;
+  const neu = (await store.add(GUEST2, guestRow('new'))).installments[1].id;
+  for (const id of [old, neu]) await store.markPaid(GUEST2, id, '2026-11', true);
 
   const login = await call('auth_login', { email: 'cap2@x.com', password: 'password-ok', p_token: GUEST2 });
   assert.equal(login.result.installments.length, 50);
@@ -447,15 +477,19 @@ test('auth_delete_account: deletes the user, every session and all their data �
   const a = await call('auth_signup', { email: 'del@x.com', password: 'password-del' });
   const a2 = await call('auth_login', { email: 'del@x.com', password: 'password-del' });
   const b = await call('auth_signup', { email: 'keep@x.com', password: 'password-keep' });
-  const fill = async (opts, token) => {
-    await call('aqsati_save', { p_token: token, p_salary: 900, p_safe_limit: 40, p_salary_day: 1 }, opts);
-    const id = (await call('aqsati_add', { p_token: token, ...inst('تابي') }, opts)).result.installments[0].id;
-    await call('aqsati_add', { p_token: token, ...inst('تمارا') }, opts);
-    await call('aqsati_mark_paid', { p_token: token, p_id: id, p_month: '2026-11', p_paid: true }, opts);
+  const fill = async (opts) => {
+    await call('aqsati_save', { p_salary: 900, p_safe_limit: 40, p_salary_day: 1 }, opts);
+    const id = (await call('aqsati_add', inst('تابي'), opts)).result.installments[0].id;
+    await call('aqsati_add', inst('تمارا'), opts);
+    await call('aqsati_mark_paid', { p_id: id, p_month: '2026-11', p_paid: true }, opts);
   };
   await fill({ session: a.cookie });
   await fill({ session: b.cookie });
-  await fill({}, GUEST);
+  // Old guest data (saved before accounts were required) must survive another account's deletion too.
+  await store.save(GUEST, { salary: 900, safeLimit: 40, salaryDay: 1 });
+  const gid = (await store.add(GUEST, guestRow('تابي'))).installments[0].id;
+  await store.add(GUEST, guestRow('تمارا'));
+  await store.markPaid(GUEST, gid, '2026-11', true);
   const aUser = await db.collection('users').findOne({ email: 'del@x.com' });
   const owner = userOwner(aUser._id);
 

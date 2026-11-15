@@ -1140,7 +1140,7 @@ function bind() {
 
 store.subscribe(render);
 bind();
-await initPage({ active: 'installments', title: 'inst.doc' });
+await initPage({ active: 'installments', requireAuth: true, title: 'inst.doc' });
 if (!store.loaded) {
   ui.loadFailed = true;
   render();
