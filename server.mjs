@@ -15,7 +15,7 @@ try {
     if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
   }
 } catch {
-  // no .env.local (normal on Replit / Vercel) — settings come from the environment
+  // no .env.local — settings come from the environment
 }
 
 const { default: rpcHandler } = await import('./lib/rpc.js');
