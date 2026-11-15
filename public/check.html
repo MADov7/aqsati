@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>أقدر أشتريه؟ · أقساطي</title>
+  <meta name="description" content="قبل لا تقسّط شي جديد: حط السعر وعدد الأقساط ونقولك إذا يمشي مع راتبك وحدك الآمن، وجرّب «ماذا لو؟» لو تغيّر راتبك أو خلّصت قسط بدري.">
+  <meta name="theme-color" content="#0f2a4a">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script src="/js/boot.js"></script>
+  <link rel="modulepreload" href="/js/core.js">
+  <link rel="modulepreload" href="/js/i18n.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/calc.js">
+  <link rel="modulepreload" href="/js/pages/check.js">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/pages/check.css">
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="skip">تخطّى للمحتوى</a>
+  <header id="site-header"></header>
+
+  <main id="main" class="page">
+    <div class="container">
+      <header class="page-head">
+        <div class="page-head-text">
+          <p class="page-kicker" data-i18n="chk.kicker">قبل لا تقسّط</p>
+          <h1 class="page-title" data-i18n="chk.title">أقدر أشتريه؟</h1>
+          <p class="page-desc" data-i18n="chk.desc">حط السعر وعدد الأقساط، ونقولك إذا يمشي مع راتبك وحدك الآمن، وكم أقل عدد أقساط يخليك مرتاح.</p>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn-ghost" href="#whatif" id="whatif-jump">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 18h16M7 14l3-4 3 2 4-6"/></svg>
+            <span data-i18n="chk.whatifJump">جرّب «ماذا لو؟»</span>
+          </a>
+        </div>
+      </header>
+
+      <div id="salary-slot"></div>
+
+      <div class="grid gap-lg check-grid">
+        <section class="card check-card col-5 lg-col-5" aria-labelledby="form-h">
+          <div class="card-head">
+            <span class="card-ico gold" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M5.5 8.5h13l-1.2 11h-10.6z"/><path d="M9 8.5a3 3 0 0 1 6 0"/></svg>
+            </span>
+            <div>
+              <h2 id="form-h" data-i18n="chk.formTitle">شنو بتشتري؟</h2>
+              <p class="hint" data-i18n="chk.formHint">النتيجة تتحدّث وأنت تكتب</p>
+            </div>
+          </div>
+          <form id="check-form" novalidate>
+            <div class="field">
+              <label for="chk-title"><span data-i18n="chk.what">اسم الغرض</span> <em data-i18n="common.optional">(اختياري)</em></label>
+              <input id="chk-title" name="title" maxlength="80" autocomplete="off" data-i18n-placeholder="chk.whatPh" placeholder="مثال: لابتوب">
+            </div>
+            <div class="field">
+              <label for="chk-price" data-i18n="chk.price">السعر الكلي</label>
+              <div class="input-group" dir="ltr">
+                <input id="chk-price" name="price" inputmode="decimal" autocomplete="off" placeholder="450" aria-describedby="chk-price-err">
+                <span class="input-affix" data-i18n="common.kwd">د.ك</span>
+              </div>
+              <p class="err" id="chk-price-err" data-err="price" aria-live="polite"></p>
+            </div>
+            <div class="field">
+              <label for="chk-count" data-i18n="chk.count">عدد الأقساط</label>
+              <input id="chk-count" name="count" inputmode="numeric" autocomplete="off" dir="ltr" placeholder="4" aria-describedby="chk-count-hint chk-count-err">
+              <div class="count-chips" role="group" aria-labelledby="chk-count-hint">
+                <span class="hint" id="chk-count-hint" data-i18n="chk.countQuick">اختيار سريع:</span>
+                <button type="button" class="chip-btn" data-count="3" aria-pressed="false">3</button>
+                <button type="button" class="chip-btn" data-count="4" aria-pressed="false">4</button>
+                <button type="button" class="chip-btn" data-count="6" aria-pressed="false">6</button>
+                <button type="button" class="chip-btn" data-count="12" aria-pressed="false">12</button>
+                <button type="button" class="chip-btn" data-count="24" aria-pressed="false">24</button>
+              </div>
+              <p class="err" id="chk-count-err" data-err="count" aria-live="polite"></p>
+            </div>
+            <div class="field">
+              <label for="chk-provider"><span data-i18n="chk.provider">مع أي جهة؟</span> <em data-i18n="common.optional">(اختياري)</em></label>
+              <select id="chk-provider" name="provider"></select>
+            </div>
+            <button type="submit" class="btn btn-gold btn-block btn-lg" data-i18n="chk.submit">افحص</button>
+          </form>
+        </section>
+
+        <section class="card result-card col-7 lg-col-7" id="result-card" aria-labelledby="result-h">
+          <div class="card-head">
+            <span class="card-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/><path d="M9 11.2l1.6 1.6L13.5 9.5"/></svg>
+            </span>
+            <div>
+              <h2 id="result-h" tabindex="-1" data-i18n="chk.resultTitle">الحكم</h2>
+              <p class="hint" data-i18n="chk.resultHint">على حسب راتبك وأقساطك الحالية</p>
+            </div>
+          </div>
+          <div id="result-body">
+            <div class="empty result-empty">
+              <svg class="empty-art" viewBox="0 0 160 120" aria-hidden="true" focusable="false">
+                <circle class="ea-ring" cx="80" cy="60" r="40"/>
+                <path class="ea-arc" d="M80 20a40 40 0 0 1 38 28"/>
+                <path class="ea-q" d="M72 52a8 8 0 1 1 11 7.4c-2 .8-3 2.3-3 4.6M80 72v.1"/>
+              </svg>
+              <strong data-i18n="chk.emptyTitle">النتيجة تطلع هني</strong>
+              <p data-i18n="chk.emptyDesc">حط السعر وعدد الأقساط، ونقولك بثانية إذا تقدر.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card whatif-card col-12" id="whatif" aria-labelledby="whatif-h" tabindex="-1">
+          <div class="card-head">
+            <span class="card-ico gold" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M4 18h16M7 14l3-4 3 2 4-6"/></svg>
+            </span>
+            <div>
+              <h2 id="whatif-h" data-i18n="wi.title">ماذا لو؟</h2>
+              <p class="hint" data-i18n="wi.hint">حرّك راتبك أو خلّص قسط بدري، وشوف وضعك يتغيّر على طول.</p>
+            </div>
+            <div class="card-actions">
+              <button type="button" class="btn btn-quiet btn-sm" id="wi-reset" data-i18n="wi.reset">رجّع كل شي</button>
+            </div>
+          </div>
+          <div class="whatif-body" id="whatif-body">
+            <div class="skel-stack"><span class="skel skel-row"></span><span class="skel skel-row"></span></div>
+          </div>
+        </section>
+      </div>
+      <p class="sr-only" id="chk-status" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <nav id="tabbar"></nav>
+  <div id="toast" hidden></div>
+  <div id="banner" hidden></div>
+  <script type="module" src="/js/pages/check.js"></script>
+</body>
+</html>

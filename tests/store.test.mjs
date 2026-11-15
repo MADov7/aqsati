@@ -13,14 +13,14 @@ const now = () => new Date((clock += 1000));
 
 test('state of a new token is empty', async () => {
   const store = createStore(createMemoryDb(), { now });
-  assert.deepEqual(await store.state(TOKEN), { profile: null, installments: [] });
+  assert.deepEqual(await store.state(TOKEN), { profile: null, installments: [], payments: [] });
 });
 
 test('save, add, list in order, remove — and tokens never see each other', async () => {
   const db = createMemoryDb();
   const store = createStore(db, { now });
   let s = await store.save(TOKEN, { salary: 1200, safeLimit: 40 });
-  assert.deepEqual(s.profile, { salary: 1200, safe_limit: 40 });
+  assert.deepEqual(s.profile, { salary: 1200, safe_limit: 40, salary_day: null });
 
   s = await store.add(TOKEN, { provider: ' تابي ', title: 'آيفون', monthly: '45.5', dueDay: 25, remaining: 3, firstDue: '2026-11-25' });
   s = await store.add(TOKEN, { provider: 'قرض بنك', title: '', monthly: 250, dueDay: 1, remaining: 24, firstDue: '2026-12-01' });
@@ -29,7 +29,7 @@ test('save, add, list in order, remove — and tokens never see each other', asy
   assert.equal(s.installments[0].monthly_amount, 45.5);
   assert.equal(s.installments[1].first_due_date, '2026-12-01');
 
-  assert.deepEqual(await store.state(OTHER), { profile: null, installments: [] });
+  assert.deepEqual(await store.state(OTHER), { profile: null, installments: [], payments: [] });
   await store.remove(OTHER, s.installments[0].id);
   assert.equal((await store.state(TOKEN)).installments.length, 2, 'another token cannot remove my rows');
 
@@ -37,7 +37,7 @@ test('save, add, list in order, remove — and tokens never see each other', asy
   assert.deepEqual(s.installments.map((i) => i.provider), ['قرض بنك']);
 
   s = await store.save(TOKEN, { salary: '1500', safeLimit: '35' });
-  assert.deepEqual(s.profile, { salary: 1500, safe_limit: 35 });
+  assert.deepEqual(s.profile, { salary: 1500, safe_limit: 35, salary_day: null });
   assert.equal(await db.collection('profiles').countDocuments({}), 1);
 });
 
@@ -59,9 +59,9 @@ test('bad input is rejected with InputError', async () => {
 test('owner keys: guest uuid v4 or u:<uuid v4>, nothing else', async () => {
   const store = createStore(createMemoryDb(), { now });
   await store.save(ACCOUNT, { salary: 900, safeLimit: 40 });
-  assert.deepEqual((await store.state(ACCOUNT)).profile, { salary: 900, safe_limit: 40 });
-  assert.deepEqual((await store.state(ACCOUNT.toUpperCase().replace('U:', 'u:'))).profile, { salary: 900, safe_limit: 40 });
-  assert.deepEqual(await store.state(TOKEN), { profile: null, installments: [] }, 'guest and account keys are separate');
+  assert.deepEqual((await store.state(ACCOUNT)).profile, { salary: 900, safe_limit: 40, salary_day: null });
+  assert.deepEqual((await store.state(ACCOUNT.toUpperCase().replace('U:', 'u:'))).profile, { salary: 900, safe_limit: 40, salary_day: null });
+  assert.deepEqual(await store.state(TOKEN), { profile: null, installments: [], payments: [] }, 'guest and account keys are separate');
   for (const bad of ['u:', 'u:not-a-uuid', 'x:' + TOKEN, `u:u:${TOKEN}`, '11111111-2222-1333-8444-555555555555', '', null, 42]) {
     await assert.rejects(store.state(bad), /token required/, String(bad));
   }
@@ -91,9 +91,9 @@ test('update changes my installment only', async () => {
 test('mergeGuest ignores bad guest tokens and non-account owners', async () => {
   const store = createStore(createMemoryDb(), { now });
   await store.add(TOKEN, { provider: 'تابي', title: '', monthly: 5, dueDay: 20, remaining: 2, firstDue: '2026-11-20' });
-  assert.deepEqual(await store.mergeGuest('nope', ACCOUNT), { installments: 0, profile: false });
-  assert.deepEqual(await store.mergeGuest(ACCOUNT, ACCOUNT), { installments: 0, profile: false });
-  assert.deepEqual(await store.mergeGuest(TOKEN, OTHER), { installments: 0, profile: false }, 'guest → guest never merges');
+  assert.deepEqual(await store.mergeGuest('nope', ACCOUNT), { installments: 0, payments: 0, profile: false });
+  assert.deepEqual(await store.mergeGuest(ACCOUNT, ACCOUNT), { installments: 0, payments: 0, profile: false });
+  assert.deepEqual(await store.mergeGuest(TOKEN, OTHER), { installments: 0, payments: 0, profile: false }, 'guest → guest never merges');
   assert.equal((await store.state(TOKEN)).installments.length, 1);
 });
 
@@ -107,7 +107,7 @@ test('handleRpc maps the page calls to the store', async () => {
   }, ctx);
   assert.equal(s.installments.length, 1);
   assert.equal(s.user, null, 'guests have no user');
-  assert.deepEqual(s.profile, { salary: 800, safe_limit: 40 });
+  assert.deepEqual(s.profile, { salary: 800, safe_limit: 40, salary_day: null });
   await assert.rejects(handleRpc({ fn: 'drop_everything', args: {} }, ctx), /unknown function/);
   await assert.rejects(handleRpc(null, ctx), /unknown function/);
   await assert.rejects(handleRpc({ fn: 'aqsati_state', args: { p_token: ACCOUNT } }, ctx), /token required/,

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>أقساطي · أقساطي</title>
+  <meta name="description" content="كل أقساطك من تابي وتمارا وديما والبنك والبطاقة: أضف وعدّل، علّم الي دفعته، وتابع سلسلة التزامك، أو الصق رسالة البنك ونعبيها عنك.">
+  <meta name="theme-color" content="#0f2a4a">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script src="/js/boot.js"></script>
+  <link rel="modulepreload" href="/js/core.js">
+  <link rel="modulepreload" href="/js/i18n.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/calc.js">
+  <link rel="modulepreload" href="/js/pages/installments.js">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/pages/installments.css">
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="skip">تخطّى للمحتوى</a>
+  <header id="site-header"></header>
+
+  <main id="main" class="page">
+    <div class="container">
+      <header class="page-head">
+        <div class="page-head-text">
+          <p class="page-kicker" data-i18n="inst.kicker">إدارة الأقساط</p>
+          <h1 class="page-title" data-i18n="inst.title">أقساطي</h1>
+          <p class="page-desc" data-i18n="inst.desc">أضف أقساطك وعدّلها، وعلّم الي دفعته كل شهر عشان تمشي سلسلة التزامك.</p>
+        </div>
+        <div class="page-actions">
+          <button type="button" class="btn btn-gold" id="add-btn">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>
+            <span data-i18n="inst.add">أضف قسط</span>
+          </button>
+          <a class="btn btn-ghost" href="#sms" id="sms-jump">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h7"/></svg>
+            <span data-i18n="inst.smsJump">الصق رسالة البنك</span>
+          </a>
+        </div>
+      </header>
+
+      <div class="stats four inst-stats" id="inst-stats" aria-busy="true">
+        <span class="skel skel-tile"></span><span class="skel skel-tile"></span><span class="skel skel-tile"></span><span class="skel skel-tile"></span>
+      </div>
+
+      <div class="grid gap-lg inst-grid">
+        <section class="card list-card col-12 lg-col-8" id="list-card" aria-labelledby="list-h">
+          <div class="card-head list-head">
+            <div>
+              <h2 id="list-h" tabindex="-1" data-i18n="inst.listTitle">قائمة أقساطك</h2>
+              <p class="hint" data-i18n="inst.listHint">رتبناها حسب أقرب موعد</p>
+            </div>
+            <div class="tabs" role="tablist" id="list-tabs" aria-labelledby="list-h">
+              <button type="button" role="tab" id="tab-active" aria-controls="list-body" aria-selected="true" data-tab="active"><span data-i18n="inst.tabActive">نشطة</span> <span class="badge" id="count-active">0</span></button>
+              <button type="button" role="tab" id="tab-done" aria-controls="list-body" aria-selected="false" tabindex="-1" data-tab="done"><span data-i18n="inst.tabDone">خلصت</span> <span class="badge" id="count-done">0</span></button>
+            </div>
+          </div>
+          <div id="list-body" role="tabpanel" aria-labelledby="tab-active" tabindex="0" class="skel-stack">
+            <span class="skel skel-row"></span><span class="skel skel-row"></span><span class="skel skel-row"></span>
+          </div>
+        </section>
+
+        <div class="inst-side col-12 lg-col-4">
+          <section class="card streak-card" id="streak-card" aria-labelledby="streak-h">
+            <div class="card-head">
+              <span class="card-ico gold" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M12 21c-3.6 0-6-2.4-6-5.6 0-3.2 2.3-4.6 3.4-7.4.4 1.8 1.2 2.7 2.2 3.2.2-3 1.6-5.5 4-7.2-.4 2.6.3 4.4 1.6 6 1 1.3 1.8 2.9 1.8 5.1 0 3.4-3 5.9-7 5.9z"/></svg>
+              </span>
+              <div>
+                <h2 id="streak-h" data-i18n="inst.streakTitle">سلسلة الالتزام</h2>
+                <p class="hint" data-i18n="inst.streakHint">شهور ورا بعض دفعت فيها كل أقساطك</p>
+              </div>
+            </div>
+            <div id="streak-body" class="skel-stack"><span class="skel skel-title"></span><span class="skel skel-line"></span></div>
+          </section>
+
+          <section class="card sms-card" id="sms" aria-labelledby="sms-h" tabindex="-1">
+            <div class="card-head">
+              <span class="card-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 9h7M8.5 12.5h4.5"/></svg>
+              </span>
+              <div>
+                <h2 id="sms-h" data-i18n="sms.title">الصق رسالة البنك</h2>
+                <p class="hint" data-i18n="sms.hint">نفهم المبلغ والجهة وكم قسط باقي، وأنت تأكد قبل الحفظ.</p>
+              </div>
+            </div>
+            <form id="sms-form" novalidate>
+              <div class="field">
+                <label for="sms-text" data-i18n="sms.label">نص الرسالة</label>
+                <textarea id="sms-text" rows="4" dir="auto" maxlength="1200" autocomplete="off" data-i18n-placeholder="sms.placeholder" placeholder="مثال: تابي: قسطك 25.500 د.ك مستحق بتاريخ 15/12، القسط 2 من 4"></textarea>
+              </div>
+              <div class="btn-row">
+                <button type="submit" class="btn" data-i18n="sms.read">افهم الرسالة</button>
+                <button type="button" class="btn btn-ghost" id="sms-sample" data-i18n="sms.sample">جرّب مثال</button>
+              </div>
+            </form>
+            <div id="sms-result" class="sms-result" aria-live="polite"></div>
+            <p class="hint sms-privacy" data-i18n="sms.privacy">الرسالة تنقرا بجهازك بس، وما ننرسلها لأي مكان.</p>
+          </section>
+        </div>
+      </div>
+      <p class="sr-only" id="inst-status" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <nav id="tabbar"></nav>
+  <div id="toast" hidden></div>
+  <div id="banner" hidden></div>
+  <script type="module" src="/js/pages/installments.js"></script>
+</body>
+</html>

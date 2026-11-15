@@ -39,7 +39,7 @@ test('signup sets a session cookie and answers STATE with the user', async () =>
   const { call, db } = await setup();
   const { result, cookie } = await call('auth_signup', { email: '  Soud@Example.COM ', password: 'correct horse', p_token: GUEST });
   assert.match(cookie, TOKEN_SHAPE);
-  assert.deepEqual(result, { profile: null, installments: [], user: { email: 'soud@example.com' } });
+  assert.deepEqual(result, { profile: null, installments: [], payments: [], user: { email: 'soud@example.com' } });
 
   const user = await db.collection('users').findOne({ email: 'soud@example.com' });
   assert.match(user.passwordHash, /^scrypt\$16384\$8\$1\$[A-Za-z0-9+/]+={0,2}\$[A-Za-z0-9+/]+={0,2}$/);
@@ -229,7 +229,7 @@ test('logout clears the cookie even when deleting the session fails', async () =
       sessionToken: 'x'.repeat(43),
       setSession: (tok) => { cookie = tok; },
     });
-    assert.deepEqual(result, { profile: null, installments: [], user: null });
+    assert.deepEqual(result, { profile: null, installments: [], payments: [], user: null });
     assert.equal(cookie, null);
   } finally {
     console.error = realError;
@@ -243,7 +243,7 @@ test('HTTP: logout clears the cookie without MONGODB_URI (no database needed)', 
   console.error = () => {};
   try {
     const res = await hit({ headers: { cookie: `aqsati_session=${'a'.repeat(43)}` }, body: { fn: 'auth_logout', args: {} } });
-    assert.deepEqual([res.statusCode, res.body], [200, { profile: null, installments: [], user: null }]);
+    assert.deepEqual([res.statusCode, res.body], [200, { profile: null, installments: [], payments: [], user: null }]);
     assert.equal(res.headers['set-cookie'], 'aqsati_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
   } finally {
     console.error = realError;
@@ -262,13 +262,13 @@ test('session expiry is enforced in code (TTL deletion is lazy)', async () => {
   clock.advance(DAY + 1000);
   assert.equal(await db.collection('sessions').countDocuments({}), 1, 'the expired session doc still exists');
   const after = await call('aqsati_state', { p_token: GUEST }, { session: cookie });
-  assert.deepEqual(after.result, { profile: null, installments: [], user: null }, 'falls back to the guest');
+  assert.deepEqual(after.result, { profile: null, installments: [], payments: [], user: null }, 'falls back to the guest');
   assert.equal(after.cookie, null, 'the stale cookie is cleared');
   assert.equal(await auth.sessionUser(cookie), null);
   assert.equal(await db.collection('sessions').countDocuments({}), 0, 'and the expired doc is removed');
 
   const back = await call('auth_login', { email: 'e@x.com', password: 'password-ok' });
-  assert.deepEqual(back.result.profile, { salary: 700, safe_limit: 40 }, 'the account data is still there');
+  assert.deepEqual(back.result.profile, { salary: 700, safe_limit: 40, salary_day: null }, 'the account data is still there');
 });
 
 test('logout deletes the session and clears the cookie', async () => {
@@ -277,7 +277,7 @@ test('logout deletes the session and clears the cookie', async () => {
   const laptop = await call('auth_login', { email: 'o@x.com', password: 'password-ok' });
 
   const out = await call('auth_logout', { p_token: GUEST }, { session: phone.cookie });
-  assert.deepEqual(out.result, { profile: null, installments: [], user: null });
+  assert.deepEqual(out.result, { profile: null, installments: [], payments: [], user: null });
   assert.equal(out.cookie, null);
   assert.equal(await auth.sessionUser(phone.cookie), null);
   const reused = await call('aqsati_state', { p_token: GUEST }, { session: phone.cookie });
@@ -285,7 +285,7 @@ test('logout deletes the session and clears the cookie', async () => {
   assert.equal((await auth.sessionUser(laptop.cookie))?.email, 'o@x.com', 'other devices stay signed in');
 
   const anon = await call('auth_logout', {});
-  assert.deepEqual(anon.result, { profile: null, installments: [], user: null }, 'logout without a session is harmless');
+  assert.deepEqual(anon.result, { profile: null, installments: [], payments: [], user: null }, 'logout without a session is harmless');
 });
 
 test('signup/login moves the guest data into the account (profile only if the account has none)', async () => {
@@ -295,18 +295,18 @@ test('signup/login moves the guest data into the account (profile only if the ac
   await call('aqsati_add', { p_token: GUEST, ...inst('تمارا') });
 
   const signup = await call('auth_signup', { email: 'm@x.com', password: 'password-ok', p_token: GUEST });
-  assert.deepEqual(signup.result.profile, { salary: 1000, safe_limit: 35 });
+  assert.deepEqual(signup.result.profile, { salary: 1000, safe_limit: 35, salary_day: null });
   assert.deepEqual(signup.result.installments.map((i) => i.provider), ['تابي', 'تمارا']);
-  assert.deepEqual(await store.state(GUEST), { profile: null, installments: [] }, 'nothing left under the guest key');
+  assert.deepEqual(await store.state(GUEST), { profile: null, installments: [], payments: [] }, 'nothing left under the guest key');
 
   // Another browser, used as a guest, then logs in to the same account.
   await call('aqsati_save', { p_token: GUEST2, p_salary: 500, p_safe_limit: 20 });
   await call('aqsati_add', { p_token: GUEST2, ...inst('ديما') });
   const login = await call('auth_login', { email: 'm@x.com', password: 'password-ok', p_token: GUEST2 });
-  assert.deepEqual(login.result.profile, { salary: 1000, safe_limit: 35 }, 'the account profile wins');
+  assert.deepEqual(login.result.profile, { salary: 1000, safe_limit: 35, salary_day: null }, 'the account profile wins');
   assert.deepEqual(login.result.installments.map((i) => i.provider), ['تابي', 'تمارا', 'ديما']);
   const left = await store.state(GUEST2);
-  assert.deepEqual(left.profile, { salary: 500, safe_limit: 20 }, 'the guest profile is not moved');
+  assert.deepEqual(left.profile, { salary: 500, safe_limit: 20, salary_day: null }, 'the guest profile is not moved');
   assert.deepEqual(left.installments, []);
 
   const again = await call('auth_login', { email: 'm@x.com', password: 'password-ok', p_token: 'not-a-uuid' });
@@ -317,7 +317,7 @@ test('guest merge never takes the account past 50 installments (oldest move firs
   const { call, store } = await setup();
   const { cookie } = await call('auth_signup', { email: 'cap@x.com', password: 'password-ok' });
   for (let i = 0; i < 48; i++) await call('aqsati_add', { p_token: GUEST, ...inst(`acc${i}`) }, { session: cookie });
-  assert.deepEqual(await store.state(GUEST), { profile: null, installments: [] }, 'with a session, p_token is ignored');
+  assert.deepEqual(await store.state(GUEST), { profile: null, installments: [], payments: [] }, 'with a session, p_token is ignored');
 
   for (const name of ['old', 'mid', 'new']) await call('aqsati_add', { p_token: GUEST2, ...inst(name) });
   const login = await call('auth_login', { email: 'cap@x.com', password: 'password-ok', p_token: GUEST2 });
@@ -336,7 +336,7 @@ test('another user cannot see, edit or remove my data', async () => {
   await call('aqsati_save', { p_salary: 900, p_safe_limit: 40 }, { session: a.cookie });
 
   const seenByB = await call('aqsati_state', { p_token: GUEST }, { session: b.cookie });
-  assert.deepEqual(seenByB.result, { profile: null, installments: [], user: { email: 'b@x.com' } });
+  assert.deepEqual(seenByB.result, { profile: null, installments: [], payments: [], user: { email: 'b@x.com' } });
   await call('aqsati_update', { p_token: GUEST, p_id: id, ...inst('hacked') }, { session: b.cookie });
   await call('aqsati_remove', { p_token: GUEST, p_id: id }, { session: b.cookie });
   await call('aqsati_update', { p_token: GUEST, p_id: id, ...inst('hacked') }); // as a guest
@@ -344,8 +344,8 @@ test('another user cannot see, edit or remove my data', async () => {
 
   const mine = await call('aqsati_state', {}, { session: a.cookie });
   assert.deepEqual(mine.result.installments.map((i) => i.provider), ['تابي']);
-  assert.deepEqual(mine.result.profile, { salary: 900, safe_limit: 40 });
-  assert.deepEqual((await call('aqsati_state', { p_token: GUEST })).result, { profile: null, installments: [], user: null });
+  assert.deepEqual(mine.result.profile, { salary: 900, safe_limit: 40, salary_day: null });
+  assert.deepEqual((await call('aqsati_state', { p_token: GUEST })).result, { profile: null, installments: [], payments: [], user: null });
 
   const owner = await db.collection('users').findOne({ email: 'a@x.com' });
   for (const fn of ['aqsati_state', 'aqsati_remove']) {
@@ -450,26 +450,26 @@ test('HTTP (memory mode): signup cookie → state → logout, end to end', async
     const origin = { origin: 'http://localhost:3000', 'sec-fetch-site': 'same-origin' };
     let res = await hit({ headers: origin, body: { fn: 'aqsati_save', args: { p_token: GUEST, p_salary: 650, p_safe_limit: 40 } } });
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.body, { profile: { salary: 650, safe_limit: 40 }, installments: [], user: null });
+    assert.deepEqual(res.body, { profile: { salary: 650, safe_limit: 40, salary_day: null }, installments: [], payments: [], user: null });
     assert.ok(warnings.some((w) => /memory mode/i.test(w)), 'memory mode logs a clear warning');
 
     res = await hit({ headers: origin, body: { fn: 'auth_signup', args: { email: 'http@x.com', password: 'password-ok', p_token: GUEST } } });
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.body, { profile: { salary: 650, safe_limit: 40 }, installments: [], user: { email: 'http@x.com' } });
+    assert.deepEqual(res.body, { profile: { salary: 650, safe_limit: 40, salary_day: null }, installments: [], payments: [], user: { email: 'http@x.com' } });
     const setCookie = res.headers['set-cookie'];
     assert.match(setCookie, /^aqsati_session=[A-Za-z0-9_-]{43}; HttpOnly; Path=\/; SameSite=Lax; Max-Age=2592000$/);
     const token = cookieValue(setCookie);
 
     res = await hit({ headers: { cookie: `theme=dark; aqsati_session=${token}` }, body: { fn: 'aqsati_state', args: { p_token: GUEST2 } } });
     assert.deepEqual(res.body.user, { email: 'http@x.com' });
-    assert.deepEqual(res.body.profile, { salary: 650, safe_limit: 40 });
+    assert.deepEqual(res.body.profile, { salary: 650, safe_limit: 40, salary_day: null });
     assert.equal(res.headers['set-cookie'], undefined);
 
     res = await hit({ headers: { cookie: `aqsati_session=${token}` }, body: { fn: 'auth_login', args: { email: 'http@x.com', password: 'bad-password' } } });
     assert.deepEqual([res.statusCode, res.body], [400, { message: 'invalid credentials' }]);
 
     res = await hit({ headers: { cookie: `aqsati_session=${token}`, 'x-forwarded-proto': 'https' }, body: { fn: 'auth_logout', args: {} } });
-    assert.deepEqual(res.body, { profile: null, installments: [], user: null });
+    assert.deepEqual(res.body, { profile: null, installments: [], payments: [], user: null });
     assert.equal(res.headers['set-cookie'], 'aqsati_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0; Secure');
 
     res = await hit({ headers: { cookie: `aqsati_session=${token}` }, body: { fn: 'aqsati_state', args: { p_token: GUEST2 } } });

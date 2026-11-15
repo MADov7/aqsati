@@ -169,7 +169,21 @@ export function validateProfileInput(raw) {
   const limit = parseAmount(raw.limit);
   if (!(salary > 0) || salary >= 1e6) errors.salary = 'حط راتب صحيح أكبر من صفر';
   if (!(limit >= 1 && limit <= 100)) errors.limit = 'نسبة من 1 إلى 100';
-  return { ok: Object.keys(errors).length === 0, errors, value: { salary: round3(salary), limit: Math.round(limit * 100) / 100 } };
+  const value = { salary: round3(salary), limit: Math.round(limit * 100) / 100 };
+  if (raw.salaryDay !== undefined) {
+    const day = validateSalaryDay(raw.salaryDay);
+    if (!day.ok) errors.salaryDay = day.error;
+    value.salaryDay = day.value;
+  }
+  return { ok: Object.keys(errors).length === 0, errors, value };
+}
+
+/** Salary day of the month: empty → null (not set), otherwise a whole day 1..31. */
+export function validateSalaryDay(raw) {
+  if (raw === null || raw === undefined || String(raw).trim() === '') return { ok: true, error: null, value: null };
+  const day = parseWhole(raw);
+  if (!(day >= 1 && day <= 31)) return { ok: false, error: 'يوم من 1 إلى 31', value: null };
+  return { ok: true, error: null, value: day };
 }
 
 export function validateInstallmentInput(raw) {
@@ -225,4 +239,109 @@ export function fmtCount(n) {
   if (n === 2) return 'قسطين';
   if (n <= 10) return `${n} أقساط`;
   return `${n} قسط`;
+}
+
+// ---------- months, schedules and payments (shared by the calendar, insights and report pages) ----------
+
+/** 'YYYY-MM-DD' → 'YYYY-MM'. */
+export const monthKey = (iso) => String(iso).slice(0, 7);
+
+/** 'YYYY-MM' moved by k months (k may be negative). */
+export function shiftMonthKey(key, k) {
+  const [y, m] = String(key).split('-').map(Number);
+  const t = shiftMonth(y, m, k);
+  return `${t.y}-${String(t.m).padStart(2, '0')}`;
+}
+
+/** Whole months from month key a to month key b (b - a). */
+export function monthsBetween(a, b) {
+  const [ay, am] = String(a).split('-').map(Number);
+  const [by, bm] = String(b).split('-').map(Number);
+  return (by * 12 + bm) - (ay * 12 + am);
+}
+
+/** Which payment (k, 0-based) of the installment falls in month 'YYYY-MM', or -1 if none. */
+export function paymentIndexIn(inst, key) {
+  const k = monthsBetween(monthKey(inst.first_due_date), key);
+  return k >= 0 && k < Number(inst.remaining_count) ? k : -1;
+}
+
+/** The installment's due date inside month 'YYYY-MM', or null when it has no payment that month. */
+export function dueInMonth(inst, key) {
+  const k = paymentIndexIn(inst, key);
+  return k < 0 ? null : nthDueDate(inst, k);
+}
+
+/** Every payment of one installment: [{ k, date, month }], oldest first. */
+export function scheduleFor(inst) {
+  const total = Math.max(0, Number(inst.remaining_count) || 0);
+  const out = [];
+  for (let k = 0; k < total; k += 1) {
+    const date = nthDueDate(inst, k);
+    out.push({ k, date, month: monthKey(date) });
+  }
+  return out;
+}
+
+/** All payments due in month 'YYYY-MM' across installments: [{ inst, k, date, amount }], by date. */
+export function dueEventsInMonth(installments, key) {
+  const events = [];
+  for (const inst of installments || []) {
+    const k = paymentIndexIn(inst, key);
+    if (k >= 0) events.push({ inst, k, date: nthDueDate(inst, k), amount: round3(Number(inst.monthly_amount)) });
+  }
+  return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : b.amount - a.amount));
+}
+
+/** Set of 'installmentId|YYYY-MM' keys from STATE.payments, for quick look-ups. */
+export function paidKeys(payments) {
+  return new Set((payments || []).map((p) => `${p.installment_id}|${p.month}`));
+}
+
+/** Was this installment marked paid for month 'YYYY-MM'? payments may be the array or a paidKeys() set. */
+export function isPaid(payments, installmentId, key) {
+  const set = payments instanceof Set ? payments : paidKeys(payments);
+  return set.has(`${installmentId}|${key}`);
+}
+
+/** The next salary date on or after today for a salary day (31 → the month's last day); null when unset. */
+export function nextSalaryDate(salaryDay, today) {
+  const day = Number(salaryDay);
+  if (!(Number.isInteger(day) && day >= 1 && day <= 31)) return null;
+  return firstDueDate(day, today);
+}
+
+// ---------- English formatting (the Arabic ones above stay the default) ----------
+
+const dayFmtEn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const monthFmtEn = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const dateFmt = new Intl.DateTimeFormat('ar-KW-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const dateFmtEn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+export const fmtKWDEn = (x) => `KWD ${money.format(round3(x))}`;
+export const fmtDayEn = (iso) => dayFmtEn.format(asUTC(iso));
+export const fmtMonthEn = (iso) => monthFmtEn.format(asUTC(iso));
+export const fmtDate = (iso) => dateFmt.format(asUTC(iso));
+export const fmtDateEn = (iso) => dateFmtEn.format(asUTC(iso));
+
+export function fmtDaysLeftEn(n) {
+  if (n === 0) return 'today';
+  if (n === 1) return 'tomorrow';
+  return `in ${n} days`;
+}
+
+export function fmtCountEn(n) {
+  return n === 1 ? '1 installment' : `${n} installments`;
+}
+
+/** n days late (n >= 1), Kuwaiti wording: «متأخر يوم» / «متأخر يومين» / «متأخر 3 أيام» / «متأخر 12 يوم». */
+export function fmtOverdue(n) {
+  if (n === 1) return 'متأخر يوم';
+  if (n === 2) return 'متأخر يومين';
+  if (n <= 10) return `متأخر ${n} أيام`;
+  return `متأخر ${n} يوم`;
+}
+
+export function fmtOverdueEn(n) {
+  return n === 1 ? '1 day overdue' : `${n} days overdue`;
 }

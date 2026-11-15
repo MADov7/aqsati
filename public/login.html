@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>دخول · أقساطي</title>
+  <meta name="description" content="ادخل لحسابك بأقساطي أو سوّ حساب جديد بإيميل وباسوورد، وأقساطك تنحفظ وتفتحها من أي جهاز.">
+  <meta name="theme-color" content="#0f2a4a">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script src="/js/boot.js"></script>
+  <link rel="modulepreload" href="/js/core.js">
+  <link rel="modulepreload" href="/js/i18n.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/calc.js">
+  <link rel="modulepreload" href="/js/pages/login.js">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/pages/login.css">
+</head>
+<body class="page-login">
+  <a class="skip-link" href="#main" data-i18n="skip">تخطّى للمحتوى</a>
+  <header id="site-header"></header>
+
+  <main id="main" class="page auth-page">
+    <div class="container auth-wrap">
+      <section class="auth-main" aria-labelledby="login-h1">
+        <header class="page-head auth-head">
+          <div class="page-head-text">
+            <p class="page-kicker" data-i18n="login.kicker">حسابك</p>
+            <h1 class="page-title" id="login-h1" data-i18n="login.h1">هلا فيك</h1>
+            <p class="page-desc" data-i18n="login.desc">ادخل أو سوّ حساب بثواني — إيميل وباسوورد بس، وأقساطك تنحفظ وتفتحها من أي جهاز.</p>
+          </div>
+        </header>
+
+        <div class="card solid auth-card">
+          <!-- already logged in -->
+          <div class="signed-in" id="signed-in" hidden>
+            <span class="avatar si-avatar" id="si-avatar" aria-hidden="true">?</span>
+            <h2 class="si-title"><span data-i18n="login.inTitle">أنت داخل بـ</span> <b class="si-email" id="si-email" dir="ltr"></b></h2>
+            <p class="hint si-desc" data-i18n="login.inDesc">أقساطك محفوظة بحسابك، وتقدر تفتحها من أي جهاز.</p>
+            <div class="btn-row si-actions">
+              <a class="btn btn-gold" href="/app" id="si-primary" data-i18n="login.inDash">افتح لوحتي</a>
+              <a class="btn btn-ghost" href="/account" data-i18n="login.inAccount">حسابي</a>
+            </div>
+            <hr class="divider">
+            <p class="hint" data-i18n="login.inSwitch">تبي تدخل بحساب ثاني؟ اطلع أول.</p>
+            <button type="button" class="btn btn-danger-ghost btn-sm" id="si-logout"><span class="spinner" aria-hidden="true"></span><span data-i18n="auth.logout">خروج</span></button>
+          </div>
+
+          <!-- log in / sign up -->
+          <div class="auth-forms" id="auth-forms">
+            <div class="tabs auth-tabs" role="tablist" data-i18n-aria-label="login.tabsLabel" aria-label="دخول أو حساب جديد">
+              <button type="button" role="tab" id="tab-login" aria-controls="panel-login" aria-selected="true" data-i18n="login.tabLogin">دخول</button>
+              <button type="button" role="tab" id="tab-signup" aria-controls="panel-signup" aria-selected="false" tabindex="-1" data-i18n="login.tabSignup">حساب جديد</button>
+            </div>
+
+            <p class="alert tone-info guest-note" id="guest-note" hidden>
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg>
+              <span id="guest-note-text"></span>
+            </p>
+
+            <div class="auth-panel" role="tabpanel" id="panel-login" aria-labelledby="tab-login" tabindex="-1">
+              <form class="auth-form" id="login-form" novalidate>
+                <div class="form-alert" id="login-alert" role="alert" aria-live="assertive"></div>
+                <div class="field">
+                  <label for="login-email" data-i18n="login.email">الإيميل</label>
+                  <input id="login-email" name="email" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="254" placeholder="name@example.com" aria-describedby="login-email-err">
+                  <span class="err" id="login-email-err" aria-live="polite"></span>
+                </div>
+                <div class="field">
+                  <label for="login-password" data-i18n="login.password">الباسوورد</label>
+                  <div class="pw-wrap">
+                    <input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="200" aria-describedby="login-password-err login-caps">
+                    <button type="button" class="pw-toggle" data-toggle="login-password" aria-controls="login-password" aria-pressed="false" data-i18n-aria-label="login.show" aria-label="أظهر الباسوورد">
+                      <svg class="ico ico-eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="ico ico-eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3l18 18"/><path d="M10.6 5.6A10 10 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.1 3.9M6.3 6.9C3.9 8.6 2.5 12 2.5 12S6 18.5 12 18.5a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                    </button>
+                  </div>
+                  <span class="caps-hint" id="login-caps" hidden data-i18n="login.caps">تنبيه: Caps Lock شغّال</span>
+                  <span class="err" id="login-password-err" aria-live="polite"></span>
+                </div>
+                <button type="submit" class="btn btn-gold btn-lg btn-block auth-submit">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span class="btn-label" data-i18n="login.submitLogin">دخول</span>
+                </button>
+                <details class="disclosure forgot">
+                  <summary data-i18n="login.forgot">نسيت الباسوورد؟</summary>
+                  <p class="hint" data-i18n="login.forgotBody">استرجاع الباسوورد بالإيميل مو متوفر بهالنسخة. إذا أنت داخل بجهاز ثاني، تقدر تغيّره من «حسابي». وتقدر تكمّل كضيف وتسوي حساب جديد بعدين.</p>
+                </details>
+                <p class="switch-line"><span data-i18n="login.noAccount">ما عندك حساب؟</span> <button type="button" class="btn-link" data-go="signup" data-i18n="login.goSignup">سوّ حساب</button></p>
+              </form>
+            </div>
+
+            <div class="auth-panel" role="tabpanel" id="panel-signup" aria-labelledby="tab-signup" tabindex="-1" hidden>
+              <form class="auth-form" id="signup-form" novalidate>
+                <div class="form-alert" id="signup-alert" role="alert" aria-live="assertive"></div>
+                <div class="field">
+                  <label for="signup-email" data-i18n="login.email">الإيميل</label>
+                  <input id="signup-email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="254" placeholder="name@example.com" aria-describedby="signup-email-err">
+                  <span class="err" id="signup-email-err" aria-live="polite"></span>
+                </div>
+                <div class="field">
+                  <label for="signup-password" data-i18n="login.newPassword">اختار باسوورد</label>
+                  <div class="pw-wrap">
+                    <input id="signup-password" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200" aria-describedby="signup-strength signup-password-err signup-caps">
+                    <button type="button" class="pw-toggle" data-toggle="signup-password" aria-controls="signup-password" aria-pressed="false" data-i18n-aria-label="login.show" aria-label="أظهر الباسوورد">
+                      <svg class="ico ico-eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="ico ico-eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3l18 18"/><path d="M10.6 5.6A10 10 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.1 3.9M6.3 6.9C3.9 8.6 2.5 12 2.5 12S6 18.5 12 18.5a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                    </button>
+                  </div>
+                  <span class="caps-hint" id="signup-caps" hidden data-i18n="login.caps">تنبيه: Caps Lock شغّال</span>
+                  <div class="pw-strength" data-level="empty">
+                    <span class="pw-meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                    <span class="pw-label" id="signup-strength" aria-live="polite"></span>
+                  </div>
+                  <ul class="pw-rules" aria-hidden="true">
+                    <li data-rule="length" data-i18n="login.rule8">8 حروف أو أكثر</li>
+                    <li data-rule="mix" data-i18n="login.ruleMix">حروف وأرقام</li>
+                    <li data-rule="symbol" data-i18n="login.ruleSym">رمز أو مسافة (اختياري)</li>
+                  </ul>
+                  <span class="err" id="signup-password-err" aria-live="polite"></span>
+                </div>
+                <button type="submit" class="btn btn-gold btn-lg btn-block auth-submit">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span class="btn-label" data-i18n="login.submitSignup">سوّ حسابي</span>
+                </button>
+                <p class="hint fine" data-i18n="login.terms">بتسجيلك توافق إن أقساطي أداة تنظيم وحساب، مو نصيحة مالية.</p>
+                <p class="switch-line"><span data-i18n="login.haveAccount">عندك حساب؟</span> <button type="button" class="btn-link" data-go="login" data-i18n="login.goLogin">ادخل</button></p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="auth-side" aria-labelledby="side-title">
+        <div class="side-art" aria-hidden="true">
+          <svg viewBox="0 0 260 200" focusable="false">
+            <defs>
+              <linearGradient id="la-phone" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#1f4f86"/>
+                <stop offset="1" stop-color="#0a1f38"/>
+              </linearGradient>
+              <linearGradient id="la-gold" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffe3a0"/>
+                <stop offset="1" stop-color="#e9a425"/>
+              </linearGradient>
+              <radialGradient id="la-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0" stop-color="#f5b942" stop-opacity=".32"/>
+                <stop offset="1" stop-color="#f5b942" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <circle cx="130" cy="100" r="96" fill="url(#la-glow)"/>
+            <g class="la-phone">
+              <rect x="88" y="18" width="84" height="164" rx="18" fill="url(#la-phone)" stroke="#ffffff" stroke-opacity=".2"/>
+              <rect x="96" y="32" width="68" height="136" rx="11" fill="#ffffff" fill-opacity=".08"/>
+              <rect x="116" y="23" width="28" height="4" rx="2" fill="#ffffff" fill-opacity=".35"/>
+              <rect x="104" y="112" width="52" height="10" rx="5" fill="#ffffff" fill-opacity=".22"/>
+              <rect x="104" y="130" width="52" height="10" rx="5" fill="#ffffff" fill-opacity=".22"/>
+              <rect x="104" y="148" width="52" height="12" rx="6" fill="url(#la-gold)"/>
+            </g>
+            <g class="la-shield">
+              <path d="M130 46 108 54.5v16c0 13.6 9.3 24.6 22 29 12.7-4.4 22-15.4 22-29v-16z" fill="url(#la-gold)"/>
+              <path d="m121 73 6.5 6.5L140 66.5" fill="none" stroke="#0f2a4a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <g class="la-coin la-coin-1">
+              <circle cx="52" cy="128" r="22" fill="#b8780f"/>
+              <circle cx="50" cy="125" r="21" fill="url(#la-gold)"/>
+              <circle cx="50" cy="125" r="15" fill="none" stroke="#8a5a00" stroke-opacity=".5" stroke-width="2"/>
+            </g>
+            <g class="la-coin la-coin-2">
+              <circle cx="212" cy="70" r="16" fill="#b8780f"/>
+              <circle cx="210" cy="68" r="15" fill="url(#la-gold)"/>
+            </g>
+            <g class="la-key">
+              <circle cx="210" cy="146" r="13" fill="none" stroke="#ffd27a" stroke-width="5"/>
+              <path d="M200 156 182 174M188 168l6 6M183 173l5 5" stroke="#ffd27a" stroke-width="5" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+        <h2 id="side-title" data-i18n="login.sideTitle">حسابك يحفظ أقساطك</h2>
+        <ul class="side-list">
+          <li data-i18n="login.side1">افتح أقساطك من أي جهاز — الجوال واللابتوب</li>
+          <li data-i18n="login.side2">الي سجلته كضيف ينتقل لحسابك تلقائياً</li>
+          <li data-i18n="login.side3">كلمة السر مشفرة، وما نطلب أي بيانات بنكية</li>
+          <li data-i18n="login.side4">تقدر تصدّر بياناتك أو تحذف حسابك متى ما تبي</li>
+        </ul>
+        <p class="side-guest"><span data-i18n="login.sideGuest">تبي تجرب أول؟</span> <a href="/app" data-i18n="login.sideGuestLink">كمّل بدون حساب</a></p>
+      </aside>
+    </div>
+  </main>
+
+  <nav id="tabbar"></nav>
+  <div id="toast" hidden></div>
+  <div id="banner" hidden></div>
+  <script type="module" src="/js/pages/login.js"></script>
+</body>
+</html>

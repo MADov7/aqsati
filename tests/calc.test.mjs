@@ -156,3 +156,91 @@ test('formatting helpers', () => {
   assert.equal(fmtCount(24), '24 قسط');
   assert.equal(daysBetween('2026-12-31', '2027-01-01'), 1);
 });
+
+// ---------- additive helpers (multi-page app: calendar, insights, report, EN mode) ----------
+
+import * as Calc from '../public/calc.js';
+
+test('validateSalaryDay and the optional salaryDay in validateProfileInput', () => {
+  assert.deepEqual(Calc.validateSalaryDay(''), { ok: true, error: null, value: null });
+  assert.deepEqual(Calc.validateSalaryDay(null), { ok: true, error: null, value: null });
+  assert.equal(Calc.validateSalaryDay('٢٥').value, 25);
+  assert.equal(Calc.validateSalaryDay('31').ok, true);
+  assert.equal(Calc.validateSalaryDay('0').ok, false);
+  assert.equal(Calc.validateSalaryDay('32').ok, false);
+  assert.equal(Calc.validateSalaryDay('2.5').ok, false);
+  // old callers (and the server) get exactly the same value object
+  assert.deepEqual(validateProfileInput({ salary: '1200', limit: '40' }).value, { salary: 1200, limit: 40 });
+  assert.deepEqual(validateProfileInput({ salary: '1200', limit: '40', salaryDay: '27' }).value, { salary: 1200, limit: 40, salaryDay: 27 });
+  assert.deepEqual(validateProfileInput({ salary: '1200', limit: '40', salaryDay: '' }).value, { salary: 1200, limit: 40, salaryDay: null });
+  const bad = validateProfileInput({ salary: '1200', limit: '40', salaryDay: '40' });
+  assert.equal(bad.ok, false);
+  assert.deepEqual(Object.keys(bad.errors), ['salaryDay']);
+});
+
+test('month keys and the payment that falls in a month', () => {
+  assert.equal(Calc.monthKey('2026-11-25'), '2026-11');
+  assert.equal(Calc.shiftMonthKey('2026-11', 2), '2027-01');
+  assert.equal(Calc.shiftMonthKey('2026-01', -1), '2025-12');
+  assert.equal(Calc.monthsBetween('2026-11', '2027-02'), 3);
+  const inst = { id: 'a', first_due_date: '2026-11-30', due_day: 31, remaining_count: 3, monthly_amount: '20.5' };
+  assert.equal(Calc.paymentIndexIn(inst, '2026-10'), -1);
+  assert.equal(Calc.paymentIndexIn(inst, '2026-11'), 0);
+  assert.equal(Calc.paymentIndexIn(inst, '2027-01'), 2);
+  assert.equal(Calc.paymentIndexIn(inst, '2027-02'), -1);
+  assert.equal(Calc.dueInMonth(inst, '2026-12'), '2026-12-31');
+  assert.equal(Calc.dueInMonth(inst, '2027-03'), null);
+  assert.deepEqual(Calc.scheduleFor(inst).map((p) => p.date), ['2026-11-30', '2026-12-31', '2027-01-31']);
+  assert.deepEqual(Calc.scheduleFor(inst).map((p) => p.month), ['2026-11', '2026-12', '2027-01']);
+});
+
+test('dueEventsInMonth lists the month payments by date', () => {
+  const list = [
+    { id: 'a', first_due_date: '2026-11-25', due_day: 25, remaining_count: 2, monthly_amount: 30 },
+    { id: 'b', first_due_date: '2026-11-05', due_day: 5, remaining_count: 12, monthly_amount: '100.250' },
+    { id: 'c', first_due_date: '2027-01-10', due_day: 10, remaining_count: 1, monthly_amount: 9 },
+  ];
+  const ev = Calc.dueEventsInMonth(list, '2026-12');
+  assert.deepEqual(ev.map((e) => [e.inst.id, e.date, e.amount]), [['b', '2026-12-05', 100.25], ['a', '2026-12-25', 30]]);
+  assert.deepEqual(Calc.dueEventsInMonth(list, '2027-01').map((e) => e.inst.id), ['b', 'c']);
+  assert.deepEqual(Calc.dueEventsInMonth([], '2027-01'), []);
+});
+
+test('payments look-ups', () => {
+  const payments = [
+    { installment_id: 'a', month: '2026-11', paid_at: '2026-11-20T10:00:00.000Z' },
+    { installment_id: 'b', month: '2026-12', paid_at: '2026-12-01T10:00:00.000Z' },
+  ];
+  assert.equal(Calc.isPaid(payments, 'a', '2026-11'), true);
+  assert.equal(Calc.isPaid(payments, 'a', '2026-12'), false);
+  const keys = Calc.paidKeys(payments);
+  assert.equal(Calc.isPaid(keys, 'b', '2026-12'), true);
+  assert.equal(Calc.isPaid(undefined, 'b', '2026-12'), false);
+});
+
+test('nextSalaryDate clamps short months and ignores an unset day', () => {
+  assert.equal(Calc.nextSalaryDate(25, '2026-11-15'), '2026-11-25');
+  assert.equal(Calc.nextSalaryDate(10, '2026-11-15'), '2026-12-10');
+  assert.equal(Calc.nextSalaryDate(31, '2027-02-01'), '2027-02-28');
+  assert.equal(Calc.nextSalaryDate(null, '2026-11-15'), null);
+  assert.equal(Calc.nextSalaryDate(0, '2026-11-15'), null);
+});
+
+test('English and extra Arabic formatting helpers', () => {
+  assert.equal(Calc.fmtKWDEn(1250.5), 'KWD 1,250.500');
+  assert.equal(Calc.fmtDaysLeftEn(0), 'today');
+  assert.equal(Calc.fmtDaysLeftEn(1), 'tomorrow');
+  assert.equal(Calc.fmtDaysLeftEn(9), 'in 9 days');
+  assert.equal(Calc.fmtCountEn(1), '1 installment');
+  assert.equal(Calc.fmtCountEn(12), '12 installments');
+  assert.equal(Calc.fmtDayEn('2026-11-05'), '5 Nov');
+  assert.equal(Calc.fmtMonthEn('2026-11-05'), 'November 2026');
+  assert.equal(Calc.fmtDateEn('2026-11-05'), '5 Nov 2026');
+  assert.match(Calc.fmtDate('2026-11-05'), /2026/);
+  assert.equal(Calc.fmtOverdue(1), 'متأخر يوم');
+  assert.equal(Calc.fmtOverdue(2), 'متأخر يومين');
+  assert.equal(Calc.fmtOverdue(4), 'متأخر 4 أيام');
+  assert.equal(Calc.fmtOverdue(15), 'متأخر 15 يوم');
+  assert.equal(Calc.fmtOverdueEn(1), '1 day overdue');
+  assert.equal(Calc.fmtOverdueEn(3), '3 days overdue');
+});

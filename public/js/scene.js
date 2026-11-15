@@ -1,17 +1,27 @@
 // أقساطي — hero 3D scene: glossy gold «د.ك» coins and floating glass instalment cards.
 // three.js r170 is imported straight from jsDelivr (no build step, no importmap). If WebGL2 isn't there,
 // the import fails, or the GPU drops the context, the inline SVG under the canvas simply stays visible.
+// Shared copy for the multi-page app (moved from /scene.js): import("/js/scene.js").then((m) => m.mountScene(box)).
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js';
 
 const GOLD = 0xf5b942;
 const FONT = '"IBM Plex Sans Arabic", Tahoma, Arial, sans-serif';
 
-const CARD_LABELS = [
-  { tag: 'جوال جديد', amount: '45.500 د.ك', step: 'قسط 2 من 4', progress: 0.5 },
-  { tag: 'سيارة', amount: '180.000 د.ك', step: 'قسط 14 من 48', progress: 0.29 },
-  { tag: 'أثاث البيت', amount: '62.250 د.ك', step: 'قسط 5 من 6', progress: 0.83 },
-];
+const CARD_LABELS = {
+  ar: [
+    { tag: 'جوال جديد', amount: '45.500 د.ك', step: 'قسط 2 من 4', progress: 0.5 },
+    { tag: 'سيارة', amount: '180.000 د.ك', step: 'قسط 14 من 48', progress: 0.29 },
+    { tag: 'أثاث البيت', amount: '62.250 د.ك', step: 'قسط 5 من 6', progress: 0.83 },
+  ],
+  en: [
+    { tag: 'New phone', amount: 'KWD 45.500', step: 'Payment 2 of 4', progress: 0.5 },
+    { tag: 'Car', amount: 'KWD 180.000', step: 'Payment 14 of 48', progress: 0.29 },
+    { tag: 'Home furniture', amount: 'KWD 62.250', step: 'Payment 5 of 6', progress: 0.83 },
+  ],
+};
+/** The page language (set on <html> by boot.js / core.js); the cards are redrawn on `langchange`. */
+const sceneLang = () => (document.documentElement.lang === 'en' ? 'en' : 'ar');
 
 /** Mounts the scene into `box` (which holds a <canvas>). Returns a controller, or null on fallback. */
 export async function mountScene(box) {
@@ -115,16 +125,23 @@ async function createScene(THREE, box, canvas) {
 
   let world = null;
   let small = null;
+  let lang = null;
   const build = () => {
     const isSmall = box.clientWidth < 440;
-    if (world && small === isSmall) return;
+    const nowLang = sceneLang();
+    if (world && small === isSmall && lang === nowLang) return;
     if (world) {
       root.remove(world.group);
       world.dispose();
     }
     small = isSmall;
-    world = buildWorld(THREE, isSmall, renderer.capabilities.getMaxAnisotropy());
+    lang = nowLang;
+    world = buildWorld(THREE, isSmall, renderer.capabilities.getMaxAnisotropy(), nowLang);
     root.add(world.group);
+  };
+  const onLang = () => {
+    build();
+    if (!raf) renderFrame(lastNow || performance.now(), true);
   };
 
   // ---- state driven by the page ----
@@ -266,6 +283,7 @@ async function createScene(THREE, box, canvas) {
   }
   document.addEventListener('visibilitychange', onVisibility);
   canvas.addEventListener('webglcontextlost', onLost);
+  window.addEventListener('langchange', onLang);
 
   renderFrame(performance.now(), true); // first (and, with reduced motion, only) frame
   sync();
@@ -282,6 +300,7 @@ async function createScene(THREE, box, canvas) {
       window.removeEventListener('scroll', onScroll);
       document.removeEventListener('visibilitychange', onVisibility);
       canvas.removeEventListener('webglcontextlost', onLost);
+      window.removeEventListener('langchange', onLang);
       if (world) world.dispose();
       envRT.dispose();
       renderer.dispose();
@@ -340,7 +359,9 @@ function buildStudio(THREE) {
   };
 }
 
-function buildWorld(THREE, small, maxAniso) {
+function buildWorld(THREE, small, maxAniso, lang = 'ar') {
+  const ltr = lang === 'en';
+  const labels = (CARD_LABELS[lang] || CARD_LABELS.ar).map((l) => ({ ...l, ltr, brand: ltr ? 'Aqsati' : 'أقساطي' }));
   const bag = new Set();
   const track = (x) => {
     bag.add(x);
@@ -361,9 +382,9 @@ function buildWorld(THREE, small, maxAniso) {
   ].filter((c) => !(small && c.big));
 
   const cards = [
-    { p: [-0.95, -0.75, -1.25], r: [-0.18, 0.5, 0.14], label: CARD_LABELS[0] },
-    { p: [1.25, 1.05, -2.3], r: [0.16, -0.45, -0.12], label: CARD_LABELS[1] },
-    { p: [0.55, -2.0, -2.9], r: [-0.4, -0.2, 0.06], label: CARD_LABELS[2], big: true },
+    { p: [-0.95, -0.75, -1.25], r: [-0.18, 0.5, 0.14], label: labels[0] },
+    { p: [1.25, 1.05, -2.3], r: [0.16, -0.45, -0.12], label: labels[1] },
+    { p: [0.55, -2.0, -2.9], r: [-0.4, -0.2, 0.06], label: labels[2], big: true },
   ].filter((c) => !(small && c.big));
 
   const rand = rng(7);
@@ -615,7 +636,7 @@ function cardFactory(THREE, track, small, maxAniso) {
     body.renderOrder = 1;
     const outline = new THREE.LineSegments(edges, edgeMat);
     const chip = new THREE.Mesh(chipGeo, chipMat);
-    chip.position.set(-w / 2 + 0.48, 0.1, 0.07);
+    chip.position.set(label.ltr ? w / 2 - 0.48 : -w / 2 + 0.48, 0.1, 0.07); // opposite the text
     const face = new THREE.Mesh(labelGeo, labelMat);
     face.position.z = 0.056;
     face.renderOrder = 2;
@@ -626,7 +647,7 @@ function cardFactory(THREE, track, small, maxAniso) {
   };
 }
 
-function cardTexture(THREE, { tag, amount, step, progress }, small) {
+function cardTexture(THREE, { tag, amount, step, progress, ltr = false, brand = 'أقساطي' }, small) {
   const W = small ? 400 : 560;
   const H = Math.round(W * (1.6 / 2.6));
   const c = document.createElement('canvas');
@@ -634,29 +655,30 @@ function cardTexture(THREE, { tag, amount, step, progress }, small) {
   c.height = H;
   const g = c.getContext('2d');
   const pad = W * 0.07;
-  g.direction = 'rtl';
-  g.textAlign = 'right';
+  const tx = ltr ? pad : W - pad; // text starts on the reading side
+  g.direction = ltr ? 'ltr' : 'rtl';
+  g.textAlign = ltr ? 'left' : 'right';
   g.textBaseline = 'alphabetic';
 
   g.fillStyle = 'rgba(255, 255, 255, 0.95)';
-  g.font = `700 ${Math.round(W * 0.056)}px ${FONT}`;
-  g.fillText('أقساطي', W - pad, pad + W * 0.05);
+  g.font = `700 ${Math.round(W * 0.056)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
+  g.fillText(brand, tx, pad + W * 0.05);
   g.fillStyle = 'rgba(255, 255, 255, 0.7)';
-  g.font = `500 ${Math.round(W * 0.042)}px ${FONT}`;
-  g.fillText(tag, W - pad, pad + W * 0.115);
+  g.font = `500 ${Math.round(W * 0.042)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
+  g.fillText(tag, tx, pad + W * 0.115);
 
   g.fillStyle = '#ffffff';
-  g.font = `700 ${Math.round(W * 0.088)}px ${FONT}`;
-  g.fillText(amount, W - pad, H * 0.68);
+  g.font = `700 ${Math.round(W * 0.088)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
+  g.fillText(amount, tx, H * 0.68);
 
   g.fillStyle = 'rgba(255, 255, 255, 0.78)';
-  g.font = `500 ${Math.round(W * 0.04)}px ${FONT}`;
-  g.fillText(step, W - pad, H - pad);
+  g.font = `500 ${Math.round(W * 0.04)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
+  g.fillText(step, tx, H - pad);
 
-  // progress bar (fills from the right, like the page)
+  // progress bar on the far side, filling in the reading direction (like the page)
   const bw = W * 0.34;
   const bh = W * 0.02;
-  const bx = pad;
+  const bx = ltr ? W - pad - bw : pad;
   const by = H - pad - bh * 1.2;
   const pill = (x, y, w, hh) => {
     const r = hh / 2;
@@ -673,7 +695,7 @@ function cardTexture(THREE, { tag, amount, step, progress }, small) {
   g.fill();
   g.fillStyle = '#f5b942';
   const fw = Math.max(bh, bw * progress);
-  pill(bx + bw - fw, by, fw, bh);
+  pill(ltr ? bx : bx + bw - fw, by, fw, bh);
   g.fill();
 
   const tex = new THREE.CanvasTexture(c);

@@ -1,0 +1,46 @@
+{
+  "id": "/app",
+  "name": "أقساطي — كل أقساطك بمكان واحد",
+  "short_name": "أقساطي",
+  "description": "اجمع أقساطك من تابي وتمارا وديما والبنك والبطاقة بمكان واحد، واعرف نسبتها من راتبك، وافحص قبل لا تقسّط شي جديد.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "dir": "rtl",
+  "lang": "ar",
+  "orientation": "any",
+  "theme_color": "#0f2a4a",
+  "background_color": "#0f2a4a",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "أقدر أشتريه؟",
+      "short_name": "أقدر أشتريه؟",
+      "description": "افحص قبل لا تقسّط شي جديد",
+      "url": "/check",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "أقساطي",
+      "short_name": "أقساطي",
+      "description": "أضف قسط أو علّمه مدفوع",
+      "url": "/installments",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "التقويم",
+      "short_name": "التقويم",
+      "description": "مواعيد أقساطك هالشهر",
+      "url": "/calendar",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

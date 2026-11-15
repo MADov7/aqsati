@@ -5,7 +5,7 @@
 //   node server.mjs --memory   → no MongoDB at all: an in-memory database (same as AQSATI_MEMORY_DB=1).
 //                                Data and accounts vanish when the server stops. Local development only.
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,16 +29,30 @@ const { default: rpcHandler, isMemoryMode } = await import('./lib/rpc.js');
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.gif': 'image/gif',
   '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.txt': 'text/plain; charset=utf-8',
+  '.ics': 'text/calendar; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
 };
 
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
 };
 
 const server = http.createServer(async (req, res) => {
@@ -57,22 +71,42 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname.endsWith('/')) pathname += 'index.html';
-  const file = resolve(publicDir, `.${pathname}`);
-  if (!file.startsWith(publicDir + sep)) {
-    res.statusCode = 403;
-    res.end('Forbidden');
+  // Clean URLs, the same as Vercel's `cleanUrls`: /app → public/app.html, / → index.html,
+  // and /app.html (or /index.html) answers 308 → /app (or /).
+  const htmlRedirect = pathname.match(/^(.*?)(?:\/index)?\.html$/i);
+  if (htmlRedirect && (req.method === 'GET' || req.method === 'HEAD')) {
+    const search = new URL(req.url, 'http://localhost').search;
+    res.statusCode = 308;
+    res.setHeader('Location', `${htmlRedirect[1] || '/'}${search}`);
+    res.end();
     return;
   }
-  try {
-    const body = await readFile(file);
-    res.setHeader('Content-Type', TYPES[extname(file)] || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.end(body);
-  } catch {
-    res.statusCode = 404;
-    res.end('Not found');
+
+  const candidates = pathname.endsWith('/')
+    ? [`${pathname}index.html`]
+    : extname(pathname) ? [pathname] : [`${pathname}.html`, `${pathname}/index.html`];
+  for (const candidate of candidates) {
+    const file = resolve(publicDir, `.${candidate}`);
+    if (file !== publicDir && !file.startsWith(publicDir + sep)) {
+      res.statusCode = 403;
+      res.end('Forbidden');
+      return;
+    }
+    try {
+      if (!(await stat(file)).isFile()) continue;
+      const body = await readFile(file);
+      res.setHeader('Content-Type', TYPES[extname(file).toLowerCase()] || 'application/octet-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      if (candidate === '/sw.js') res.setHeader('Service-Worker-Allowed', '/');
+      res.end(req.method === 'HEAD' ? undefined : body);
+      return;
+    } catch {
+      // try the next candidate
+    }
   }
+  res.statusCode = 404;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.end('Not found');
 });
 
 const port = Number(process.env.PORT) || 3000;

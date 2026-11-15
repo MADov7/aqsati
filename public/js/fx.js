@@ -1,5 +1,6 @@
 // أقساطي — small interaction effects (no dependencies). Every effect is skipped or softened
 // when the visitor asks for reduced motion. Styles are set through the CSSOM only (CSP-safe).
+// Shared by every page (moved from /fx.js); core.js starts ripples + tilt for all pages.
 
 const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 const mqFine = window.matchMedia('(hover: hover) and (pointer: fine)');
@@ -186,5 +187,23 @@ export function scrollFx({ bar, links = [] }) {
   for (const id of byId.keys()) {
     const el = document.getElementById(id);
     if (el) spy.observe(el);
+  }
+}
+
+/** Give each matching child an index (--i) so CSS can stagger its entrance animation. */
+export function stagger(root = document, selector = '[data-stagger] > *') {
+  const scope = typeof root === 'string' ? document.querySelector(root) : root;
+  if (!scope) return;
+  scope.querySelectorAll(selector).forEach((el, i) => el.style.setProperty('--i', String(Math.min(i, 12))));
+}
+
+/** Run fn whenever the reduced-motion preference changes. Returns an unsubscribe function. */
+export function onMotionChange(fn) {
+  const handler = () => fn(reducedMotion());
+  try {
+    mqReduce.addEventListener('change', handler);
+    return () => mqReduce.removeEventListener('change', handler);
+  } catch {
+    return () => {};
   }
 }

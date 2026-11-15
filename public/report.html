@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>التقرير الشهري · أقساطي</title>
+  <meta name="description" content="كشف أقساطك الشهري: المجموع والمدفوع والباقي ونسبتها من راتبك، جدول الدفعات، ونصايح — حمّله PDF أو صدّره CSV.">
+  <meta name="theme-color" content="#0f2a4a">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script src="/js/boot.js"></script>
+  <link rel="modulepreload" href="/js/core.js">
+  <link rel="modulepreload" href="/js/i18n.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/calc.js">
+  <link rel="modulepreload" href="/js/pages/report.js">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/pages/report.css">
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="skip">تخطّى للمحتوى</a>
+  <header id="site-header"></header>
+
+  <main id="main" class="page">
+    <div class="container">
+      <div class="page-head">
+        <div class="page-head-text">
+          <p class="page-kicker" data-i18n="rep.kicker">التقرير الشهري</p>
+          <h1 class="page-title" data-i18n="rep.title">كشف أقساطك الشهري</h1>
+          <p class="page-desc" data-i18n="rep.desc">كشف مرتب لأي شهر: المجموع والمدفوع والباقي ونسبتها من راتبك — حمّله PDF أو صدّره CSV.</p>
+        </div>
+        <div class="page-actions">
+          <button type="button" class="btn btn-gold" id="rep-pdf" disabled>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></svg>
+            <span data-i18n="rep.pdf">حمّل PDF</span>
+          </button>
+          <button type="button" class="btn btn-ghost" id="rep-csv" disabled>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 10h16M4 15h16M10 4v16"/></svg>
+            <span data-i18n="rep.csv">تصدير CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="rep-root" aria-busy="true">
+        <div class="skel skel-row rep-skel-bar mb-4"></div>
+        <div class="skel skel-card rep-skel-sheet"></div>
+      </div>
+    </div>
+  </main>
+
+  <nav id="tabbar"></nav>
+  <div id="toast" hidden></div>
+  <div id="banner" hidden></div>
+  <script type="module" src="/js/pages/report.js"></script>
+</body>
+</html>

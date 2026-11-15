@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>التحليل · أقساطي</title>
+  <meta name="description" content="تحليل أقساطك: متى بتخف أقساطك خلال السنة، توزيعها حسب الجهة، تاريخ الخلاص من الديون، وخطة سداد مع مبلغ إضافي.">
+  <meta name="theme-color" content="#0f2a4a">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script src="/js/boot.js"></script>
+  <link rel="modulepreload" href="/js/core.js">
+  <link rel="modulepreload" href="/js/i18n.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/calc.js">
+  <link rel="modulepreload" href="/js/pages/insights.js">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/pages/insights.css">
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="skip">تخطّى للمحتوى</a>
+  <header id="site-header"></header>
+
+  <main id="main" class="page">
+    <div class="container">
+      <div class="page-head">
+        <div class="page-head-text">
+          <p class="page-kicker" data-i18n="ins.kicker">التحليل</p>
+          <h1 class="page-title" data-i18n="ins.title">وين رايحة أقساطك؟</h1>
+          <p class="page-desc" data-i18n="ins.desc">متى بتخف أقساطك، مين ياخذ أكثر من راتبك، ومتى تخلص من كل ديونك — مع خطة سداد تقدر تجربها.</p>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn-gold" href="#plan" id="to-plan">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 19h16"/><path d="m5 15 4-4 3 3 7-7"/><path d="M15 7h4v4"/></svg>
+            <span data-i18n="ins.toPlan">جرّب خطة السداد</span>
+          </a>
+          <a class="btn btn-ghost" href="/report" data-i18n="ins.toReport">التقرير الشهري</a>
+        </div>
+      </div>
+
+      <div id="ins-root" aria-busy="true">
+        <div class="stats four mb-6"><div class="skel skel-tile"></div><div class="skel skel-tile"></div><div class="skel skel-tile"></div><div class="skel skel-tile"></div></div>
+        <div class="grid gap-lg">
+          <div class="lg-col-8"><div class="skel skel-card ins-skel"></div></div>
+          <div class="lg-col-4"><div class="skel skel-card ins-skel"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <nav id="tabbar"></nav>
+  <div id="toast" hidden></div>
+  <div id="banner" hidden></div>
+  <script type="module" src="/js/pages/insights.js"></script>
+</body>
+</html>

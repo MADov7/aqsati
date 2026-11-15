@@ -3,96 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'">
-  <title>أقساطي — كل أقساطك بمكان واحد</title>
-  <meta name="description" content="اجمع أقساطك من تابي وتمارا والبنك والبطاقة بمكان واحد، واعرف نسبتها من راتبك، وافحص قبل لا تقسّط شي جديد.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>كل أقساطك بمكان واحد · أقساطي</title>
+  <meta name="description" content="اجمع أقساطك من تابي وتمارا وديما والبنك والبطاقة بمكان واحد، واعرف نسبتها من راتبك، وافحص «أقدر أشتريه؟» قبل لا تقسّط شي جديد.">
   <meta name="theme-color" content="#0f2a4a">
   <meta property="og:title" content="أقساطي — كل أقساطك بمكان واحد">
   <meta property="og:description" content="اعرف كم تاخذ الأقساط من راتبك، وافحص قبل لا تقسّط شي جديد.">
   <meta property="og:locale" content="ar_KW">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f2a4a'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%23f5b942' font-family='Arial'%3E%D9%82%3C/text%3E%3C/svg%3E">
+  <meta property="og:image" content="/icons/icon-512.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script src="/js/boot.js"></script>
+  <link rel="modulepreload" href="/js/core.js">
+  <link rel="modulepreload" href="/js/i18n.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/calc.js">
+  <link rel="modulepreload" href="/js/pages/index.js">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="/styles.css">
-  <script type="module" src="/app.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/pages/index.css">
 </head>
-<body>
-  <a class="skip" href="#app">تخطّى للحاسبة</a>
-  <div class="progress" aria-hidden="true"><span id="scroll-progress"></span></div>
+<body class="page-home">
+  <a class="skip-link" href="#main" data-i18n="skip">تخطّى للمحتوى</a>
+  <header id="site-header"></header>
 
-  <!-- ===================== top bar ===================== -->
-  <header class="topbar" id="topbar">
-    <div class="wrap topbar-in">
-      <a class="brand" href="#top" aria-label="أقساطي — فوق الصفحة">
-        <span class="logo" aria-hidden="true">ق</span>
-        <span class="brand-name">أقساطي</span>
-      </a>
-
-      <nav class="nav" aria-label="أقسام الحاسبة">
-        <a href="#dash" data-spy="dash">
-          <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 15a8 8 0 1 1 16 0"/><path d="M12 15l4.5-4.5"/><path d="M4 19.5h16"/></svg>
-          <span>لوحتي</span>
-        </a>
-        <a href="#add-card" data-spy="add-card">
-          <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
-          <span>أضف قسط</span>
-        </a>
-        <a href="#check-card" data-spy="check-card">
-          <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5.5 8.5h13l-1.2 11h-10.6z"/><path d="M9 8.5a3 3 0 0 1 6 0"/><path d="M9.5 14l1.8 1.8 3.4-3.6"/></svg>
-          <span>أقدر أشتريه؟</span>
-        </a>
-      </nav>
-
-      <div class="auth-area">
-        <button type="button" class="btn btn-gold btn-sm" id="login-btn">دخول</button>
-        <div class="user-box" id="user-box" hidden>
-          <span class="avatar" id="user-avatar" aria-hidden="true"></span>
-          <span class="user-email" id="user-email"></span>
-          <button type="button" class="btn btn-glass btn-sm" id="logout-btn">خروج</button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main id="top">
+  <main id="main" class="home">
     <!-- ===================== hero ===================== -->
-    <section class="hero" aria-labelledby="hero-h">
+    <section class="hero" aria-labelledby="hero-title">
       <div class="hero-bg" aria-hidden="true">
         <span class="orb orb-1"></span>
         <span class="orb orb-2"></span>
         <span class="grid-lines"></span>
       </div>
 
-      <div class="wrap hero-in">
+      <div class="container hero-in">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>تابي · تمارا · البنك · البطاقة — بشاشة وحدة</p>
-          <h1 id="hero-h" class="hero-title">
-            <span class="ln ln-1">كل أقساطك</span>
-            <span class="ln ln-2"><span class="gold-text">بمكان واحد</span>،</span>
-            <span class="ln ln-3">وتعرف قبل لا تقسّط إذا تقدر.</span>
+          <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span><span data-i18n="home.eyebrow">تابي · تمارا · ديما · البنك · البطاقة — بشاشة وحدة</span></p>
+          <h1 id="hero-title" class="hero-title">
+            <span class="ln ln-1" data-i18n="home.h1a">كل أقساطك</span>
+            <span class="ln ln-2"><span class="gold-text" data-i18n="home.h1b">بمكان واحد</span></span>
+            <span class="ln ln-3" data-i18n="home.h1c">وتعرف قبل لا تقسّط إذا تقدر.</span>
           </h1>
-          <p class="lead">اجمع أقساطك من كل الجهات، وشوف كم تاخذ من راتبك، واعرف موعد كل قسط قبل لا يفاجئك. وقبل لا تشتري شي جديد بالتقسيط، نقولك إذا يناسب ميزانيتك ولا لا.</p>
+          <p class="lead" data-i18n="home.lead">اجمع أقساطك من كل الجهات، وشوف كم تاخذ من راتبك، واعرف موعد كل قسط قبل لا يفاجئك. وقبل لا تشتري شي جديد بالتقسيط، نقولك إذا يناسب ميزانيتك ولا لا.</p>
           <div class="cta-row">
-            <a class="btn btn-gold btn-lg" href="#app" id="start-cta">ابدأ الحين — بدون تسجيل</a>
-            <button type="button" class="btn btn-glass btn-lg" id="hero-login">عندي حساب</button>
+            <a class="btn btn-gold btn-lg" href="/app" id="cta-start">
+              <span data-i18n="home.ctaStart">ابدأ الحين — بدون تسجيل</span>
+              <svg class="ico ico-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></svg>
+            </a>
+            <a class="btn btn-glass btn-lg" href="/login" id="cta-login" data-i18n="home.ctaLogin">دخول</a>
           </div>
-          <ul class="trust" aria-label="ليش أقساطي؟">
-            <li><span aria-hidden="true">🔒</span> ما نطلب حسابك البنكي ولا بطاقتك</li>
+          <ul class="trust" data-i18n-aria-label="home.trustLabel" aria-label="ليش تثق بأقساطي؟">
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+              <span data-i18n="home.trust1">ما نطلب حسابك البنكي ولا بطاقتك</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg>
+              <span data-i18n="home.trust2">كلمة السر مشفرة</span>
+            </li>
             <li>
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9 9.5c0-1.4 1.3-2.2 3-2.2s3 .8 3 2.2-1.3 1.9-3 2.4-3 1-3 2.4 1.3 2.3 3 2.3 3-.9 3-2.3M12 5.5v1.8M12 16.7v1.8"/></svg>
-              بالدينار
+              <span data-i18n="home.trust3">بالدينار الكويتي</span>
             </li>
             <li>
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h7"/></svg>
-              بالعربي
+              <span data-i18n="home.trust4">عربي · English</span>
             </li>
           </ul>
         </div>
 
         <div class="hero-visual">
           <div class="scene-box" id="scene-box">
-            <!-- shown until the 3D scene draws its first frame, and kept if WebGL isn't available -->
+            <!-- shown until the 3D scene draws its first frame, and kept when WebGL isn't available -->
             <svg class="scene-fallback" viewBox="0 0 400 400" aria-hidden="true" focusable="false">
               <defs>
                 <radialGradient id="fb-glow" cx="50%" cy="50%" r="50%">
@@ -142,7 +128,7 @@
                 <circle cx="214" cy="176" r="78" fill="url(#fb-edge)"/>
                 <circle cx="209" cy="171" r="74" fill="url(#fb-coin)"/>
                 <circle cx="209" cy="171" r="59" fill="none" stroke="#8a5a00" stroke-opacity=".45" stroke-width="3"/>
-                <text x="209" y="188" text-anchor="middle" font-size="46" font-weight="700" fill="#7a4f00">د.ك</text>
+                <text x="209" y="186" text-anchor="middle" font-size="42" font-weight="700" fill="#7a4f00" data-i18n="common.kwd">د.ك</text>
               </g>
               <g class="fb-spark" fill="#ffd27a">
                 <path d="M330 92l4 10 10 4-10 4-4 10-4-10-10-4 10-4z"/>
@@ -150,36 +136,76 @@
                 <path d="M300 340l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/>
               </g>
             </svg>
-            <canvas id="scene" class="scene-canvas" aria-hidden="true"></canvas>
+            <canvas class="scene-canvas" aria-hidden="true"></canvas>
 
             <div class="float-chip chip-a" aria-hidden="true">
               <span class="chip-ico ok">✓</span>
-              <span><small>نسبتك من الراتب</small><b>32% · مريح</b></span>
+              <span><small id="chip-a-label">نسبتك من الراتب</small><b id="chip-a-value">32% · مريح</b></span>
             </div>
             <div class="float-chip chip-b" aria-hidden="true">
-              <span class="chip-ico gold">⏰</span>
-              <span><small>القسط الجاي · باچر</small><b>45.500 د.ك</b></span>
+              <span class="chip-ico gold">
+                <svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.5 1.5M9 3.5h6"/></svg>
+              </span>
+              <span><small id="chip-b-label">القسط الجاي · باچر</small><b id="chip-b-value">45.500 د.ك</b></span>
             </div>
           </div>
         </div>
       </div>
 
-      <a class="scroll-cue" href="#how" aria-label="انزل لـ «كيف يشتغل؟»">
-        <span aria-hidden="true"></span>
-      </a>
+      <a class="scroll-cue" href="#how" data-i18n-aria-label="home.scrollCue" aria-label="انزل لـ «كيف يشتغل؟»"><span aria-hidden="true"></span></a>
+    </section>
+
+    <!-- ===================== providers ===================== -->
+    <section class="providers" aria-labelledby="prov-title">
+      <div class="container providers-in">
+        <h2 id="prov-title" class="providers-title" data-i18n="home.provTitle">يجمع لك أقساطك من كل مكان</h2>
+        <ul class="provider-list">
+          <li><span class="pv pv-1" aria-hidden="true" data-i18n="home.pvT">ت</span><span data-i18n="home.pv1">تابي</span></li>
+          <li><span class="pv pv-3" aria-hidden="true" data-i18n="home.pvT">ت</span><span data-i18n="home.pv2">تمارا</span></li>
+          <li><span class="pv pv-2" aria-hidden="true" data-i18n="home.pvD">د</span><span data-i18n="home.pv3">ديما</span></li>
+          <li><span class="pv pv-0" aria-hidden="true" data-i18n="home.pvB">ب</span><span data-i18n="home.pv4">قروض البنوك</span></li>
+          <li><span class="pv pv-4" aria-hidden="true" data-i18n="home.pvC">ب</span><span data-i18n="home.pv5">البطاقات الائتمانية</span></li>
+          <li><span class="pv pv-5" aria-hidden="true">+</span><span data-i18n="home.pv6">أي قسط ثاني</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===================== facts ===================== -->
+    <section class="facts" aria-labelledby="facts-title">
+      <div class="container">
+        <h2 id="facts-title" class="sr-only" data-i18n="home.factsTitle">أقساطي بالأرقام</h2>
+        <dl class="facts-grid">
+          <div class="fact reveal">
+            <dt data-i18n="home.fact1">ربط بحسابك البنكي أو بطاقتك</dt>
+            <dd><span class="fact-num" data-count="0" data-suffix="">0</span></dd>
+          </div>
+          <div class="fact reveal">
+            <dt data-i18n="home.fact2">حد آمن افتراضي، وتقدر تغيّره</dt>
+            <dd><span class="fact-num" data-count="40" data-suffix="%">40%</span></dd>
+          </div>
+          <div class="fact reveal">
+            <dt data-i18n="home.fact3">ميزات بتطبيق واحد</dt>
+            <dd><span class="fact-num" data-count="10" data-suffix="">10</span></dd>
+          </div>
+          <div class="fact reveal">
+            <dt data-i18n="home.fact4">شهر من سجل التزامك محفوظ</dt>
+            <dd><span class="fact-num" data-count="24" data-suffix="">24</span></dd>
+          </div>
+        </dl>
+      </div>
     </section>
 
     <!-- ===================== how it works ===================== -->
-    <section class="how" id="how" aria-labelledby="how-h">
-      <div class="wrap">
-        <header class="section-head reveal">
-          <p class="kicker">كيف يشتغل؟</p>
-          <h2 id="how-h">ثلاث خطوات، وتعرف وين واقف</h2>
-          <p>بدون ربط حسابات، وبدون أرقام بطاقات. أنت تكتب، ونحن نحسب.</p>
+    <section class="how" id="how" aria-labelledby="how-title">
+      <div class="container">
+        <header class="home-head reveal">
+          <p class="page-kicker" data-i18n="home.howKicker">كيف يشتغل؟</p>
+          <h2 id="how-title" data-i18n="home.howTitle">ثلاث خطوات، وتعرف وين واقف</h2>
+          <p data-i18n="home.howDesc">بدون ربط حسابات، وبدون أرقام بطاقات. أنت تكتب، ونحن نحسب.</p>
         </header>
 
         <ol class="steps">
-          <li class="step reveal tilt">
+          <li class="step card reveal tilt">
             <div class="step-art">
               <svg viewBox="0 0 240 170" aria-hidden="true" focusable="false">
                 <defs>
@@ -188,28 +214,28 @@
                     <stop offset="1" stop-color="#e9a425"/>
                   </linearGradient>
                 </defs>
-                <circle cx="120" cy="88" r="74" fill="#eaf0fa"/>
+                <circle class="il-bg" cx="120" cy="88" r="74"/>
                 <g class="s-phone">
-                  <rect x="76" y="14" width="96" height="146" rx="18" fill="#0f2a4a"/>
-                  <rect x="83" y="26" width="82" height="122" rx="10" fill="#ffffff"/>
-                  <rect x="108" y="18" width="32" height="4" rx="2" fill="#2b4a72"/>
+                  <rect class="il-device" x="76" y="14" width="96" height="146" rx="18"/>
+                  <rect class="il-screen" x="83" y="26" width="82" height="122" rx="10"/>
+                  <rect class="il-notch" x="108" y="18" width="32" height="4" rx="2"/>
                   <g class="s-row s-row-1">
-                    <rect x="89" y="36" width="70" height="26" rx="7" fill="#f3f6fb"/>
+                    <rect class="il-row" x="89" y="36" width="70" height="26" rx="7"/>
                     <circle cx="148" cy="49" r="7" fill="#14b8a6"/>
-                    <rect x="108" y="42" width="30" height="5" rx="2.5" fill="#c3cfdf"/>
-                    <rect x="95" y="51" width="22" height="5" rx="2.5" fill="#0f2a4a"/>
+                    <rect class="il-line" x="108" y="42" width="30" height="5" rx="2.5"/>
+                    <rect class="il-ink" x="95" y="51" width="22" height="5" rx="2.5"/>
                   </g>
                   <g class="s-row s-row-2">
-                    <rect x="89" y="68" width="70" height="26" rx="7" fill="#f3f6fb"/>
+                    <rect class="il-row" x="89" y="68" width="70" height="26" rx="7"/>
                     <circle cx="148" cy="81" r="7" fill="#f5b942"/>
-                    <rect x="112" y="74" width="26" height="5" rx="2.5" fill="#c3cfdf"/>
-                    <rect x="95" y="83" width="26" height="5" rx="2.5" fill="#0f2a4a"/>
+                    <rect class="il-line" x="112" y="74" width="26" height="5" rx="2.5"/>
+                    <rect class="il-ink" x="95" y="83" width="26" height="5" rx="2.5"/>
                   </g>
                   <g class="s-row s-row-3">
-                    <rect x="89" y="100" width="70" height="26" rx="7" fill="#f3f6fb"/>
+                    <rect class="il-row" x="89" y="100" width="70" height="26" rx="7"/>
                     <circle cx="148" cy="113" r="7" fill="#8b5cf6"/>
-                    <rect x="104" y="106" width="34" height="5" rx="2.5" fill="#c3cfdf"/>
-                    <rect x="95" y="115" width="18" height="5" rx="2.5" fill="#0f2a4a"/>
+                    <rect class="il-line" x="104" y="106" width="34" height="5" rx="2.5"/>
+                    <rect class="il-ink" x="95" y="115" width="18" height="5" rx="2.5"/>
                   </g>
                 </g>
                 <g class="s-fly">
@@ -226,35 +252,35 @@
                 </g>
               </svg>
             </div>
-            <span class="step-num" aria-hidden="true">١</span>
-            <h3>أضف أقساطك</h3>
-            <p>تابي، تمارا، قرض البنك، البطاقة… حط المبلغ الشهري ويوم الاستحقاق وكم قسط باقي. والعدد ينقص لحاله كل شهر.</p>
+            <span class="step-num" aria-hidden="true">1</span>
+            <h3 data-i18n="home.step1Title">أضف أقساطك</h3>
+            <p data-i18n="home.step1Desc">تابي، تمارا، ديما، قرض البنك، البطاقة… حط المبلغ الشهري ويوم الاستحقاق وكم قسط باقي. أو الصق رسالة البنك ونعبّيها لك.</p>
           </li>
 
-          <li class="step reveal tilt">
+          <li class="step card reveal tilt">
             <div class="step-art">
               <svg viewBox="0 0 240 170" aria-hidden="true" focusable="false">
                 <defs>
                   <linearGradient id="s2-ring" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stop-color="#22c55e"/>
-                    <stop offset="1" stop-color="#15803d"/>
+                    <stop offset="0" stop-color="#2dd4bf"/>
+                    <stop offset="1" stop-color="#0f766e"/>
                   </linearGradient>
                 </defs>
-                <circle cx="120" cy="86" r="74" fill="#eaf0fa"/>
-                <circle cx="120" cy="86" r="50" fill="#ffffff"/>
-                <circle cx="120" cy="86" r="50" fill="none" stroke="#e3e9f2" stroke-width="13"/>
+                <circle class="il-bg" cx="120" cy="86" r="74"/>
+                <circle class="il-screen" cx="120" cy="86" r="50"/>
+                <circle class="il-track" cx="120" cy="86" r="50" fill="none" stroke-width="13"/>
                 <circle class="s-ring" cx="120" cy="86" r="50" fill="none" stroke="url(#s2-ring)" stroke-width="13" stroke-linecap="round" stroke-dasharray="100.5 314.2" transform="rotate(-90 120 86)"/>
-                <g transform="rotate(144 120 86)"><line x1="120" y1="27" x2="120" y2="45" stroke="#0f2a4a" stroke-width="4" stroke-linecap="round"/></g>
-                <text x="120" y="92" text-anchor="middle" font-size="25" font-weight="700" fill="#0f2a4a">32%</text>
-                <text x="120" y="110" text-anchor="middle" font-size="11" fill="#55657c">من راتبك</text>
+                <g transform="rotate(144 120 86)"><line class="il-tick" x1="120" y1="27" x2="120" y2="45" stroke-width="4" stroke-linecap="round"/></g>
+                <text class="il-text" x="120" y="92" text-anchor="middle" font-size="25" font-weight="700">32%</text>
+                <text class="il-text-2" x="120" y="110" text-anchor="middle" font-size="11" data-i18n="home.ilOfSalary">من راتبك</text>
                 <g class="s-bars">
-                  <rect class="s-bar s-bar-1" x="22" y="104" width="12" height="40" rx="4" fill="#c7d4e8"/>
-                  <rect class="s-bar s-bar-2" x="38" y="88" width="12" height="56" rx="4" fill="#9fb5d6"/>
-                  <rect class="s-bar s-bar-3" x="54" y="72" width="12" height="72" rx="4" fill="#0f2a4a"/>
+                  <rect class="s-bar s-bar-1 il-bar-1" x="22" y="104" width="12" height="40" rx="4"/>
+                  <rect class="s-bar s-bar-2 il-bar-2" x="38" y="88" width="12" height="56" rx="4"/>
+                  <rect class="s-bar s-bar-3 il-device" x="54" y="72" width="12" height="72" rx="4"/>
                 </g>
                 <g class="s-badge">
-                  <rect x="168" y="28" width="56" height="24" rx="12" fill="#e7f6ec"/>
-                  <text x="196" y="45" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">مريح ✓</text>
+                  <rect class="il-ok-bg" x="164" y="28" width="64" height="24" rx="12"/>
+                  <text class="il-ok" x="196" y="45" text-anchor="middle" font-size="11" font-weight="700" data-i18n="home.ilComfy">مريح ✓</text>
                 </g>
                 <g class="s-coins">
                   <ellipse cx="196" cy="140" rx="20" ry="7" fill="#b8780f"/>
@@ -264,12 +290,12 @@
                 </g>
               </svg>
             </div>
-            <span class="step-num" aria-hidden="true">٢</span>
-            <h3>شوف نسبتك</h3>
-            <p>كم تاخذ الأقساط من راتبك، وكم يبقى لك، والي باقي تدفعه هالشهر. وتنبيه إذا قربت من حدك الآمن.</p>
+            <span class="step-num" aria-hidden="true">2</span>
+            <h3 data-i18n="home.step2Title">شوف نسبتك</h3>
+            <p data-i18n="home.step2Desc">كم تاخذ الأقساط من راتبك، وكم يبقى لك، والي باقي تدفعه هالشهر. وتنبيه إذا قربت من حدك الآمن.</p>
           </li>
 
-          <li class="step reveal tilt">
+          <li class="step card reveal tilt">
             <div class="step-art">
               <svg viewBox="0 0 240 170" aria-hidden="true" focusable="false">
                 <defs>
@@ -278,7 +304,7 @@
                     <stop offset="1" stop-color="#0f2a4a"/>
                   </linearGradient>
                 </defs>
-                <circle cx="120" cy="86" r="74" fill="#eaf0fa"/>
+                <circle class="il-bg" cx="120" cy="86" r="74"/>
                 <g class="s-bag">
                   <path d="M62 62h76l-7 88H69z" fill="url(#s3-bag)"/>
                   <path d="M82 62v-8a18 18 0 0 1 36 0v8" fill="none" stroke="#f5b942" stroke-width="6" stroke-linecap="round"/>
@@ -286,14 +312,14 @@
                 </g>
                 <g class="s-tag">
                   <g transform="rotate(-10 60 40)">
-                    <rect x="22" y="26" width="72" height="28" rx="8" fill="#ffffff" stroke="#dbe3ef"/>
-                    <text x="58" y="45" text-anchor="middle" font-size="12" font-weight="700" fill="#0f2a4a">360 د.ك</text>
+                    <rect class="il-screen il-stroke" x="20" y="26" width="78" height="28" rx="8"/>
+                    <text class="il-text" x="59" y="45" text-anchor="middle" font-size="12" font-weight="700" data-i18n="home.ilPrice">360 د.ك</text>
                   </g>
                 </g>
                 <g class="s-lens">
-                  <line x1="176" y1="128" x2="198" y2="150" stroke="#0f2a4a" stroke-width="9" stroke-linecap="round"/>
-                  <circle cx="156" cy="106" r="32" fill="#ffffff" stroke="#0f2a4a" stroke-width="7"/>
-                  <path class="s-check" d="M141 106l10 10 20-21" fill="none" stroke="#16a34a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line class="il-tick" x1="176" y1="128" x2="198" y2="150" stroke-width="9" stroke-linecap="round"/>
+                  <circle class="il-screen il-lens" cx="156" cy="106" r="32" stroke-width="7"/>
+                  <path class="s-check" d="M141 106l10 10 20-21" fill="none" stroke="#0d9488" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
                 </g>
                 <g class="s-chip4">
                   <rect x="176" y="30" width="44" height="24" rx="12" fill="#f5b942"/>
@@ -301,234 +327,335 @@
                 </g>
               </svg>
             </div>
-            <span class="step-num" aria-hidden="true">٣</span>
-            <h3>افحص قبل لا تقسّط</h3>
-            <p>تحط السعر وعدد الأقساط، ونقولك نسبتك الجديدة، وإذا بتتعدى حدك نقترح أقل عدد أقساط يخليك مرتاح.</p>
+            <span class="step-num" aria-hidden="true">3</span>
+            <h3 data-i18n="home.step3Title">افحص قبل لا تقسّط</h3>
+            <p data-i18n="home.step3Desc">تحط السعر وعدد الأقساط، ونقولك نسبتك الجديدة، وإذا بتتعدى حدك نقترح أقل عدد أقساط يخليك مرتاح.</p>
           </li>
         </ol>
       </div>
     </section>
 
-    <!-- ===================== the app ===================== -->
-    <section class="app" id="app" aria-labelledby="app-h" tabindex="-1">
-      <div class="wrap app-in">
-        <header class="section-head reveal">
-          <p class="kicker">حاسبتك</p>
-          <h2 id="app-h">أقساطك وراتبك بلوحة وحدة</h2>
-          <p>كل شي يتحسب لحاله. تقدر تبدأ بدون تسجيل، وإذا تبي تفتحها من أي جهاز سوّ حساب بإيميل وباسوورد.</p>
+    <!-- ===================== try it: «أقدر أشتريه؟» demo ===================== -->
+    <section class="demo" id="demo" aria-labelledby="demo-title">
+      <div class="container">
+        <header class="home-head reveal">
+          <p class="page-kicker" data-i18n="home.demoKicker">جرّبها الحين</p>
+          <h2 id="demo-title" data-i18n="home.demoTitle">أقدر أشتريه؟ اعرف بثواني</h2>
+          <p data-i18n="home.demoDesc">حط راتبك وأقساطك الحالية وسعر الشي الي تبيه. الحساب يصير بجهازك، وما ينحفظ شي.</p>
         </header>
 
-        <div id="banner" class="banner" role="alert" hidden></div>
-
-        <aside class="save-card" id="save-card" aria-labelledby="save-h" hidden>
-          <div class="save-ico" aria-hidden="true">
-            <svg viewBox="0 0 48 48" focusable="false"><path d="M24 5l15 6v11c0 10-6.4 17.6-15 21-8.6-3.4-15-11-15-21V11z" fill="#f5b942"/><path d="M16.5 24.5l5.2 5.2 10-10.4" fill="none" stroke="#0f2a4a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div class="save-copy">
-            <h3 id="save-h">احفظ أقساطك بحساب عشان ما تضيع لو غيرت جهازك</h3>
-            <p>إيميل وباسوورد بس، وكل الي كتبته هني ينتقل لحسابك تلقائياً.</p>
-          </div>
-          <div class="save-actions">
-            <button type="button" class="btn btn-gold" id="save-signup">سوّ حساب</button>
-            <button type="button" class="icon-btn" id="save-dismiss" aria-label="سكّر هالتنبيه">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
-            </button>
-          </div>
-        </aside>
-
-        <section class="card salary-card reveal" id="salary-card" aria-labelledby="salary-h">
-          <div class="card-head">
-            <span class="card-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.6"/></svg>
-            </span>
-            <div>
-              <h2 id="salary-h">راتبك</h2>
-              <p class="hint">الحد الآمن هو أقصى نسبة من راتبك تبيها تروح للأقساط. 40% بداية معقولة، وتقدر تغيرها.</p>
+        <div class="demo-grid">
+          <form class="card solid demo-form reveal" id="demo-form" novalidate>
+            <p class="demo-note" id="demo-note" hidden></p>
+            <div class="form-row">
+              <div class="field">
+                <label for="d-salary" data-i18n="home.dSalary">راتبك الشهري</label>
+                <div class="input-group">
+                  <input id="d-salary" name="salary" inputmode="decimal" autocomplete="off" value="1200" aria-describedby="d-salary-err">
+                  <span class="input-affix" data-i18n="common.kwd">د.ك</span>
+                </div>
+                <span class="err" id="d-salary-err" aria-live="polite"></span>
+              </div>
+              <div class="field">
+                <label for="d-current" data-i18n="home.dCurrent">أقساطك الحالية بالشهر</label>
+                <div class="input-group">
+                  <input id="d-current" name="current" inputmode="decimal" autocomplete="off" value="300" aria-describedby="d-current-err">
+                  <span class="input-affix" data-i18n="common.kwd">د.ك</span>
+                </div>
+                <span class="err" id="d-current-err" aria-live="polite"></span>
+              </div>
+              <div class="field">
+                <label for="d-price" data-i18n="home.dPrice">سعر الشي الجديد</label>
+                <div class="input-group">
+                  <input id="d-price" name="price" inputmode="decimal" autocomplete="off" value="360" aria-describedby="d-price-err">
+                  <span class="input-affix" data-i18n="common.kwd">د.ك</span>
+                </div>
+                <span class="err" id="d-price-err" aria-live="polite"></span>
+              </div>
+              <div class="field">
+                <label for="d-count" data-i18n="home.dCount">على كم قسط؟</label>
+                <div class="input-group">
+                  <input id="d-count" name="count" inputmode="numeric" autocomplete="off" value="4" aria-describedby="d-count-err">
+                  <span class="input-affix" data-i18n="home.dMonths">شهر</span>
+                </div>
+                <span class="err" id="d-count-err" aria-live="polite"></span>
+              </div>
             </div>
-          </div>
-          <form id="salary-form" class="row" novalidate>
-            <label class="field">
-              <span>الراتب الشهري (د.ك)</span>
-              <input id="salary" name="salary" inputmode="decimal" autocomplete="off" placeholder="مثال: 1200">
-              <small class="err" data-err="salary"></small>
-            </label>
-            <label class="field narrow">
-              <span>الحد الآمن من الراتب (%)</span>
-              <input id="limit" name="limit" inputmode="decimal" autocomplete="off" value="40">
-              <small class="err" data-err="limit"></small>
-            </label>
-            <button type="submit" class="btn">حفظ الراتب</button>
+            <div class="seg demo-quick" role="radiogroup" data-i18n-aria-label="home.dQuick" aria-label="عدد أقساط سريع">
+              <label><input type="radio" name="quick" value="3"><span>3</span></label>
+              <label><input type="radio" name="quick" value="4" checked><span>4</span></label>
+              <label><input type="radio" name="quick" value="6"><span>6</span></label>
+              <label><input type="radio" name="quick" value="12"><span>12</span></label>
+            </div>
+            <p class="hint demo-limit" id="demo-limit">حدك الآمن ⁦40%⁩ من الراتب.</p>
           </form>
-        </section>
 
-        <section class="card dash" id="dash" aria-labelledby="dash-h" aria-busy="true">
-          <h2 id="dash-h" class="sr-only">لوحة الشهر</h2>
-          <p class="sr-only">جاري التحميل…</p>
-          <div class="skel-head" aria-hidden="true"><span class="skel skel-title"></span><span class="skel skel-pill"></span></div>
-          <div class="dash-top" aria-hidden="true">
-            <div class="skel skel-ring"></div>
-            <div class="stats">
-              <div class="skel skel-tile"></div>
-              <div class="skel skel-tile"></div>
-              <div class="skel skel-tile"></div>
-              <div class="skel skel-tile"></div>
+          <div class="card demo-result reveal" id="demo-result" aria-live="polite">
+            <div class="demo-top">
+              <figure class="gauge sm demo-gauge">
+                <div class="gauge-dial">
+                  <svg class="ring" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+                    <circle class="ring-track" cx="60" cy="60" r="50"/>
+                    <circle class="ring-fill" id="demo-ring" cx="60" cy="60" r="50" transform="rotate(-90 60 60)"/>
+                    <g id="demo-tick-rot"><line class="ring-tick" x1="60" y1="3" x2="60" y2="17"/></g>
+                  </svg>
+                  <div class="gauge-center"><strong id="demo-pct">—</strong><span data-i18n="home.dOfSalary">من راتبك</span></div>
+                </div>
+              </figure>
+              <div class="demo-verdict" id="demo-verdict"></div>
+            </div>
+            <dl class="kv demo-kv">
+              <div><dt data-i18n="home.dNewMonthly">القسط الجديد بالشهر</dt><dd class="num" id="demo-new">—</dd></div>
+              <div><dt data-i18n="home.dTotal">مجموع أقساطك بعده</dt><dd class="num" id="demo-total">—</dd></div>
+              <div><dt data-i18n="home.dLeft">يبقى من راتبك</dt><dd class="num" id="demo-left">—</dd></div>
+            </dl>
+            <div class="demo-actions">
+              <a class="btn btn-gold btn-block" href="/check" data-i18n="home.dOpenCheck">افتح «أقدر أشتريه؟» مع «ماذا لو؟»</a>
             </div>
           </div>
-          <div class="skel-list" aria-hidden="true">
-            <span class="skel skel-line"></span>
-            <span class="skel skel-row"></span>
-            <span class="skel skel-row"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== features ===================== -->
+    <section class="features" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <header class="home-head reveal">
+          <p class="page-kicker" data-i18n="home.featKicker">كل الي تحتاجه</p>
+          <h2 id="features-title" data-i18n="home.featTitle">عشر ميزات تخليك مسيطر على أقساطك</h2>
+          <p data-i18n="home.featDesc">من لوحة الشهر لين التقرير PDF — كلها مجانية، وتشتغل على الجوال مثل التطبيق.</p>
+        </header>
+
+        <ul class="feature-grid">
+          <li class="feature card f-wide reveal tilt">
+            <div class="feature-body">
+              <span class="f-ico fi-navy" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><path d="M4 15a8 8 0 1 1 16 0"/><path d="m12 15 4.5-4.5"/><path d="M4 19.5h16"/></svg></span>
+              <h3><a class="stretched" href="/app" data-i18n="home.f1Title">لوحة الشهر</a></h3>
+              <p data-i18n="home.f1Desc">مجموع أقساطك ونسبتها من راتبك بحلقة وحدة، وكم يبقى لك، والقسط الجاي بعد كم يوم — كل شي يتحسب لحاله.</p>
+              <span class="f-more" aria-hidden="true" data-i18n="home.fOpen">افتح</span>
+            </div>
+            <div class="f-visual f-visual-ring" aria-hidden="true">
+              <svg viewBox="0 0 160 120" focusable="false">
+                <circle class="il-track" cx="62" cy="60" r="40" fill="none" stroke-width="11"/>
+                <circle class="f-ring" cx="62" cy="60" r="40" fill="none" stroke-width="11" stroke-linecap="round" stroke-dasharray="85 251.3" transform="rotate(-90 62 60)"/>
+                <text class="il-text" x="62" y="66" text-anchor="middle" font-size="19" font-weight="700">34%</text>
+                <rect class="il-bar-1" x="118" y="66" width="10" height="30" rx="3"/>
+                <rect class="il-bar-2" x="132" y="50" width="10" height="46" rx="3"/>
+                <rect x="146" y="34" width="10" height="62" rx="3" fill="#f5b942"/>
+              </svg>
+            </div>
+          </li>
+
+          <li class="feature card f-wide reveal tilt">
+            <div class="feature-body">
+              <span class="f-ico fi-gold" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/><path d="M9 11.2l1.6 1.6L13.5 9.5"/></svg></span>
+              <h3><a class="stretched" href="/check" data-i18n="home.f2Title">أقدر أشتريه؟ + ماذا لو؟</a></h3>
+              <p data-i18n="home.f2Desc">قبل لا تقسّط: نسبتك الجديدة، وهل بتتعدى حدك الآمن، وأقل عدد أقساط يريحك. وجرّب سيناريوهات «ماذا لو؟» قبل لا تقرر.</p>
+              <span class="f-more" aria-hidden="true" data-i18n="home.fOpen">افتح</span>
+            </div>
+            <div class="f-visual f-visual-verdict" aria-hidden="true">
+              <span class="mini-verdict ok"><b>✓</b><span data-i18n="home.f2Ok">تقدر — ⁦33%⁩</span></span>
+              <span class="mini-verdict warn"><b>!</b><span data-i18n="home.f2Warn">قسّطه على 6 أشهر</span></span>
+            </div>
+          </li>
+
+          <li class="feature card reveal tilt">
+            <span class="f-ico fi-teal" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m9.5 15 1.8 1.8 3.4-3.4"/></svg></span>
+            <h3><a class="stretched" href="/calendar" data-i18n="home.f3Title">التقويم والتذكير</a></h3>
+            <p data-i18n="home.f3Desc">كل مواعيدك على تقويم الشهر، وصدّرها لتقويم جوالك (ics) عشان يذكرك قبل الموعد.</p>
+          </li>
+
+          <li class="feature card reveal tilt">
+            <span class="f-ico fi-violet" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg></span>
+            <h3><a class="stretched" href="/insights" data-i18n="home.f4Title">التحليل وخطة السداد</a></h3>
+            <p data-i18n="home.f4Desc">توزيع أقساطك حسب الجهة، ومتى تخلص منها، وخطة سداد ترتب لك وش تسدد أول.</p>
+          </li>
+
+          <li class="feature card reveal tilt">
+            <span class="f-ico fi-green" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="m7.8 12.3 2.8 2.8 5.6-5.8"/></svg></span>
+            <h3><a class="stretched" href="/installments" data-i18n="home.f5Title">دفعت ✓ وسجل الالتزام</a></h3>
+            <p data-i18n="home.f5Desc">علّم كل قسط «دفعت» أول ما تسدده، وشوف التزامك شهر بشهر.</p>
+          </li>
+
+          <li class="feature card reveal tilt">
+            <span class="f-ico fi-rose" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span>
+            <h3><a class="stretched" href="/installments" data-i18n="home.f6Title">لصق رسالة البنك</a></h3>
+            <p data-i18n="home.f6Desc">انسخ رسالة البنك أو تابي والصقها، ونطلع لك المبلغ والتاريخ تلقائياً.</p>
+          </li>
+
+          <li class="feature card reveal tilt">
+            <span class="f-ico fi-navy" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg></span>
+            <h3><a class="stretched" href="/report" data-i18n="home.f7Title">التقرير الشهري PDF</a></h3>
+            <p data-i18n="home.f7Desc">تقرير مرتب لشهرك تطبعه أو تحفظه PDF بضغطة وحدة.</p>
+          </li>
+
+          <li class="feature card reveal">
+            <span class="f-ico fi-night" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span>
+            <h3 data-i18n="home.f8Title">الوضع الليلي</h3>
+            <p data-i18n="home.f8Desc">ألوان مريحة للعين بالليل، أو خله يتبع إعداد جهازك.</p>
+            <button type="button" class="btn btn-ghost btn-sm f-action" id="try-theme" data-i18n="home.f8Try">جرّب الوضع الليلي</button>
+          </li>
+
+          <li class="feature card reveal">
+            <span class="f-ico fi-gold" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/><path d="m9.5 10 2.5 2.5 2.5-2.5M12 6v6.5"/></svg></span>
+            <h3 data-i18n="home.f9Title">يشتغل كتطبيق</h3>
+            <p data-i18n="home.f9Desc">ثبّته على شاشة جوالك، ويفتح بسرعة حتى لو النت ضعيف.</p>
+            <button type="button" class="btn btn-ghost btn-sm f-action" id="try-install" hidden data-i18n="home.f9Install">ثبّت التطبيق</button>
+            <p class="hint f-hint" id="install-hint" data-i18n="home.f9Hint">من قائمة المتصفح اختار «أضف إلى الشاشة الرئيسية».</p>
+          </li>
+
+          <li class="feature card reveal">
+            <span class="f-ico fi-teal" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/></svg></span>
+            <h3 data-i18n="home.f10Title">عربي / English</h3>
+            <p data-i18n="home.f10Desc">الواجهة كلها بالعربي، وبضغطة وحدة تصير بالإنجليزي.</p>
+            <button type="button" class="btn btn-ghost btn-sm f-action" id="try-lang" lang="en">Switch to English</button>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===================== privacy ===================== -->
+    <section class="privacy" id="privacy" aria-labelledby="privacy-title">
+      <div class="container">
+        <div class="privacy-card reveal">
+          <div class="privacy-art" aria-hidden="true">
+            <svg viewBox="0 0 220 220" focusable="false">
+              <defs>
+                <linearGradient id="pv-shield" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#ffd27a"/>
+                  <stop offset="1" stop-color="#e9a425"/>
+                </linearGradient>
+                <radialGradient id="pv-glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#f5b942" stop-opacity=".35"/>
+                  <stop offset="1" stop-color="#f5b942" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <circle cx="110" cy="110" r="104" fill="url(#pv-glow)"/>
+              <circle class="pv-orbit" cx="110" cy="110" r="88" fill="none" stroke="#ffffff" stroke-opacity=".14" stroke-dasharray="4 8"/>
+              <path class="pv-shield" d="M110 34 54 56v42c0 36 23.6 64.6 56 76 32.4-11.4 56-40 56-76V56z" fill="url(#pv-shield)"/>
+              <path d="M110 48 66 65.5v33c0 28 18.4 50.4 44 59.8z" fill="#ffffff" fill-opacity=".22"/>
+              <rect x="88" y="98" width="44" height="34" rx="7" fill="#0f2a4a"/>
+              <path d="M96 98v-8a14 14 0 0 1 28 0v8" fill="none" stroke="#0f2a4a" stroke-width="7" stroke-linecap="round"/>
+              <circle cx="110" cy="112" r="5" fill="#f5b942"/>
+              <path d="M110 115v8" stroke="#f5b942" stroke-width="4" stroke-linecap="round"/>
+              <g class="pv-dots" fill="#ffd27a">
+                <circle cx="30" cy="80" r="4"/>
+                <circle cx="192" cy="68" r="3"/>
+                <circle cx="186" cy="160" r="4"/>
+              </g>
+            </svg>
           </div>
-        </section>
-        <p id="dash-status" class="sr-only" role="status"></p>
+          <div class="privacy-copy">
+            <p class="privacy-kicker" data-i18n="home.privKicker">الخصوصية والأمان</p>
+            <h2 id="privacy-title" data-i18n="home.privTitle">فلوسك سرك، وبياناتك لك بس</h2>
+            <ul class="privacy-list">
+              <li><span class="pl-ico" aria-hidden="true">🔒</span><span data-i18n="home.priv1">ما نطلب حسابك البنكي ولا بطاقتك — أنت تكتب الأرقام بنفسك.</span></li>
+              <li><span class="pl-ico" aria-hidden="true">🔑</span><span data-i18n="home.priv2">كلمة السر مشفرة (scrypt)، وما نقدر نشوفها حتى نحن.</span></li>
+              <li><span class="pl-ico" aria-hidden="true">🌐</span><span data-i18n="home.priv3">بدون حساب؟ بياناتك مربوطة بمتصفحك بس، ومحد غيرك يشوفها.</span></li>
+              <li><span class="pl-ico" aria-hidden="true">📤</span><span data-i18n="home.priv4">صدّر بياناتك CSV، أو احذف حسابك وكل بياناته متى ما تبي.</span></li>
+              <li><span class="pl-ico" aria-hidden="true">🚫</span><span data-i18n="home.priv5">بدون إعلانات، وما نبيع بياناتك لأي أحد.</span></li>
+            </ul>
+            <a class="btn btn-glass" href="/account" data-i18n="home.privCta">إعدادات الخصوصية بحسابي</a>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <div class="grid2">
-          <section class="card reveal" id="add-card" aria-labelledby="add-h">
-            <div class="card-head">
-              <span class="card-ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
-              </span>
-              <div>
-                <h2 id="add-h">إضافة قسط</h2>
-                <p class="hint">من أي جهة: تقسيط، قرض، أو بطاقة.</p>
-              </div>
-            </div>
-            <form id="add-form" novalidate>
-              <label class="field">
-                <span>الجهة</span>
-                <select id="provider" name="provider"></select>
-                <small class="err" data-err="provider"></small>
-              </label>
-              <label class="field" id="other-wrap" hidden>
-                <span>اسم الجهة</span>
-                <input id="provider-other" name="providerOther" maxlength="40" autocomplete="off" placeholder="مثال: بيت التمويل">
-              </label>
-              <label class="field">
-                <span>على شنو؟ <em>(اختياري)</em></span>
-                <input id="title" name="title" maxlength="80" autocomplete="off" placeholder="مثال: آيفون، سيارة، أثاث">
-                <small class="err" data-err="title"></small>
-              </label>
-              <div class="row3">
-                <label class="field">
-                  <span>المبلغ الشهري (د.ك)</span>
-                  <input id="monthly" name="monthly" inputmode="decimal" autocomplete="off" placeholder="مثال: 45.500">
-                  <small class="err" data-err="monthly"></small>
-                </label>
-                <label class="field">
-                  <span>يوم الاستحقاق</span>
-                  <input id="due-day" name="dueDay" inputmode="numeric" autocomplete="off" placeholder="1 – 31">
-                  <small class="err" data-err="dueDay"></small>
-                </label>
-                <label class="field">
-                  <span>كم قسط باقي؟</span>
-                  <input id="remaining" name="remaining" inputmode="numeric" autocomplete="off" placeholder="مثال: 6">
-                  <small class="err" data-err="remaining"></small>
-                </label>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn">أضف القسط</button>
-                <button type="button" class="btn btn-ghost" id="cancel-edit" hidden>إلغاء</button>
-              </div>
-            </form>
-          </section>
+    <!-- ===================== FAQ ===================== -->
+    <section class="faq" id="faq" aria-labelledby="faq-title">
+      <div class="container-narrow">
+        <header class="home-head reveal">
+          <p class="page-kicker" data-i18n="home.faqKicker">أسئلة تتكرر</p>
+          <h2 id="faq-title" data-i18n="home.faqTitle">عندك سؤال؟</h2>
+        </header>
+        <div class="faq-list">
+          <details class="disclosure reveal">
+            <summary data-i18n="home.q1">لازم أسجّل عشان أستخدمه؟</summary>
+            <p data-i18n="home.a1">لا. تقدر تبدأ الحين بدون تسجيل وبياناتك تنحفظ بمتصفحك. وإذا سوّيت حساب بعدين، كل أقساطك تنتقل له تلقائياً وتفتحها من أي جهاز.</p>
+          </details>
+          <details class="disclosure reveal">
+            <summary data-i18n="home.q2">تربطون حسابي البنكي أو تابي؟</summary>
+            <p data-i18n="home.a2">أبداً. ما نطلب أي رقم حساب أو بطاقة ولا كلمة سر بنك. أنت تكتب المبلغ ويوم الاستحقاق، أو تلصق رسالة البنك ونطلع منها الأرقام.</p>
+          </details>
+          <details class="disclosure reveal">
+            <summary data-i18n="home.q3">وش يعني «الحد الآمن»؟</summary>
+            <p data-i18n="home.a3">هو أعلى نسبة من راتبك تبي أقساطك ما تتعداها. الافتراضي ⁦40%⁩، وتقدر تغيّره من «حسابي». إذا قربت منه نحذّرك، وإذا تعديته نقولك.</p>
+          </details>
+          <details class="disclosure reveal">
+            <summary data-i18n="home.q4">أقدر أثبّته على جوالي؟</summary>
+            <p data-i18n="home.a4">إي. افتح الموقع من الجوال واختار «أضف إلى الشاشة الرئيسية»، ويصير مثل التطبيق ويفتح حتى لو النت ضعيف.</p>
+          </details>
+          <details class="disclosure reveal">
+            <summary data-i18n="home.q5">هل أقساطي نصيحة مالية؟</summary>
+            <p data-i18n="home.a5">لا. أقساطي أداة تنظيم وحساب تساعدك تشوف الصورة كاملة. القرار النهائي لك، ولو تحتاج استشارة كلّم مختص.</p>
+          </details>
+        </div>
+      </div>
+    </section>
 
-          <section class="card check-card reveal" id="check-card" aria-labelledby="check-h">
-            <div class="card-head">
-              <span class="card-ico gold" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false"><path d="M5.5 8.5h13l-1.2 11h-10.6z"/><path d="M9 8.5a3 3 0 0 1 6 0"/><path d="M9.5 14l1.8 1.8 3.4-3.6"/></svg>
-              </span>
-              <div>
-                <h2 id="check-h">أقدر أشتريه؟</h2>
-                <p class="hint">قبل لا تضغط «قسّطها»، شوف شنو بيصير بنسبتك من الراتب.</p>
-              </div>
-            </div>
-            <form id="check-form" novalidate>
-              <div class="row2">
-                <label class="field">
-                  <span>سعر الشي (د.ك)</span>
-                  <input id="price" name="price" inputmode="decimal" autocomplete="off" placeholder="مثال: 360">
-                  <small class="err" data-err="price"></small>
-                </label>
-                <label class="field">
-                  <span>عدد الأقساط (شهور)</span>
-                  <input id="count" name="count" inputmode="numeric" autocomplete="off" value="4">
-                  <small class="err" data-err="count"></small>
-                </label>
-              </div>
-              <button type="submit" class="btn btn-gold btn-block">افحص</button>
-            </form>
-            <div id="check-result" class="check-result" aria-live="polite" hidden></div>
-          </section>
+    <!-- ===================== final CTA ===================== -->
+    <section class="final" aria-labelledby="final-title">
+      <div class="container">
+        <div class="final-card reveal">
+          <span class="logo lg" aria-hidden="true">ق</span>
+          <h2 id="final-title" data-i18n="home.finalTitle">جاهز تعرف وين واقف؟</h2>
+          <p data-i18n="home.finalDesc">دقيقتين وتضيف أقساطك، وتعرف نسبتك من راتبك على طول.</p>
+          <div class="cta-row">
+            <a class="btn btn-gold btn-lg" href="/app" id="final-start" data-i18n="home.ctaStart">ابدأ الحين — بدون تسجيل</a>
+            <a class="btn btn-glass btn-lg" href="/login?mode=signup" id="final-signup" data-i18n="home.finalSignup">سوّ حساب مجاني</a>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="foot">
-    <div class="wrap foot-in">
-      <div class="foot-brand">
-        <span class="logo sm" aria-hidden="true">ق</span>
-        <span>أقساطي</span>
+  <!-- ===================== footer ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-in">
+      <div class="footer-brand">
+        <a class="brand" href="/" data-i18n-aria-label="brand.home" aria-label="أقساطي — الصفحة الرئيسية">
+          <span class="logo sm" aria-hidden="true">ق</span>
+          <span class="brand-name" data-i18n="app.name">أقساطي</span>
+        </a>
+        <p data-i18n="home.footTagline">كل أقساطك بمكان واحد، وتعرف قبل لا تقسّط إذا تقدر.</p>
       </div>
-      <p class="foot-privacy">🔒 ما نطلب حسابك البنكي ولا بطاقتك، بس الأرقام الي تكتبها أنت.</p>
-      <p class="foot-note">بدون حساب: بياناتك مربوطة بهالمتصفح. ومع حساب: تفتحها من أي جهاز. · أقساطي — نسخة MVP</p>
+      <nav class="footer-nav" data-i18n-aria-label="home.footApp" aria-label="التطبيق">
+        <h2 class="footer-h" data-i18n="home.footApp">التطبيق</h2>
+        <ul>
+          <li><a href="/app" data-i18n="nav.app">لوحتي</a></li>
+          <li><a href="/installments" data-i18n="nav.installments">أقساطي</a></li>
+          <li><a href="/check" data-i18n="nav.check">أقدر أشتريه؟</a></li>
+          <li><a href="/calendar" data-i18n="nav.calendar">التقويم</a></li>
+          <li><a href="/insights" data-i18n="nav.insights">التحليل</a></li>
+          <li><a href="/report" data-i18n="nav.report">التقرير</a></li>
+        </ul>
+      </nav>
+      <nav class="footer-nav" data-i18n-aria-label="home.footAccount" aria-label="حسابك">
+        <h2 class="footer-h" data-i18n="home.footAccount">حسابك</h2>
+        <ul>
+          <li><a href="/login" data-i18n="auth.login">دخول</a></li>
+          <li><a href="/login?mode=signup" data-i18n="home.footSignup">حساب جديد</a></li>
+          <li><a href="/account" data-i18n="nav.account">حسابي</a></li>
+        </ul>
+      </nav>
+      <div class="footer-nav">
+        <h2 class="footer-h" data-i18n="home.footMore">أكثر</h2>
+        <ul>
+          <li><a href="#how" data-i18n="home.howKicker">كيف يشتغل؟</a></li>
+          <li><a href="#privacy" data-i18n="home.privKicker">الخصوصية والأمان</a></li>
+          <li><a href="#faq" data-i18n="home.faqKicker">أسئلة تتكرر</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p data-i18n="home.footCopy">© 2026 أقساطي · صُنع بالكويت</p>
+      <p data-i18n="home.footNote">أقساطي أداة تنظيم وحساب، مو نصيحة مالية.</p>
     </div>
   </footer>
 
-  <div id="toast" class="toast" role="status" hidden></div>
-
-  <!-- ===================== auth dialog ===================== -->
-  <div class="modal" id="auth-modal" hidden>
-    <div class="modal-backdrop" data-close></div>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-describedby="auth-sub" tabindex="-1">
-      <button type="button" class="icon-btn modal-x" data-close aria-label="سكّر">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-      <div class="modal-head">
-        <span class="logo" aria-hidden="true">ق</span>
-        <h2 id="auth-title">هلا فيك من جديد</h2>
-        <p id="auth-sub">ادخل بإيميلك وتلقى أقساطك مثل ما خليتها.</p>
-      </div>
-
-      <div class="tabs" role="tablist" aria-label="نوع الدخول">
-        <button type="button" role="tab" id="tab-login" aria-selected="true" aria-controls="auth-form" tabindex="0">دخول</button>
-        <button type="button" role="tab" id="tab-signup" aria-selected="false" aria-controls="auth-form" tabindex="-1">حساب جديد</button>
-        <span class="tab-ink" aria-hidden="true"></span>
-      </div>
-
-      <form id="auth-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
-        <label class="field">
-          <span>الإيميل</span>
-          <input id="auth-email" name="email" type="email" inputmode="email" autocomplete="email" dir="ltr" spellcheck="false" autocapitalize="off" placeholder="name@example.com" maxlength="254" aria-describedby="auth-email-err">
-          <small class="err" id="auth-email-err"></small>
-        </label>
-        <div class="field">
-          <label for="auth-password">الباسوورد</label>
-          <div class="pw-wrap">
-            <input id="auth-password" name="password" type="password" autocomplete="current-password" dir="ltr" maxlength="200" aria-describedby="auth-password-err">
-            <button type="button" class="pw-toggle" id="pw-toggle" aria-pressed="false" aria-label="أظهر الباسوورد">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="M4 4l16 16"/></svg>
-            </button>
-          </div>
-          <small class="err" id="auth-password-err"></small>
-        </div>
-        <div class="strength" id="pw-strength" hidden>
-          <span class="strength-bar" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-          <small id="pw-strength-text">لازم 8 حروف أو أكثر</small>
-        </div>
-
-        <div class="auth-err" id="auth-err" role="alert"></div>
-
-        <button type="submit" class="btn btn-gold btn-block btn-lg" id="auth-submit">
-          <span class="spinner" aria-hidden="true"></span>
-          <span class="btn-label">دخول</span>
-        </button>
-        <p class="auth-note">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
-          الأقساط الي كتبتها بهالمتصفح تنتقل لحسابك تلقائياً.
-        </p>
-      </form>
-    </div>
-  </div>
+  <nav id="tabbar"></nav>
+  <div id="toast" hidden></div>
+  <div id="banner" hidden></div>
+  <script type="module" src="/js/pages/index.js"></script>
 </body>
 </html>

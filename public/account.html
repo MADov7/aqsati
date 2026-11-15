@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'">
+  <title>حسابي · أقساطي</title>
+  <meta name="description" content="إعدادات أقساطي: راتبك وحدك الآمن ويوم نزول الراتب، المظهر واللغة، تغيير الباسوورد، تصدير بياناتك CSV وحذف الحساب.">
+  <meta name="theme-color" content="#0f2a4a">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script src="/js/boot.js"></script>
+  <link rel="modulepreload" href="/js/core.js">
+  <link rel="modulepreload" href="/js/i18n.js">
+  <link rel="modulepreload" href="/js/fx.js">
+  <link rel="modulepreload" href="/calc.js">
+  <link rel="modulepreload" href="/js/pages/account.js">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/pages/account.css">
+</head>
+<body class="page-account">
+  <a class="skip-link" href="#main" data-i18n="skip">تخطّى للمحتوى</a>
+  <header id="site-header"></header>
+
+  <main id="main" class="page account-page">
+    <div class="container">
+      <header class="page-head">
+        <div class="page-head-text">
+          <p class="page-kicker" data-i18n="acc.kicker">حسابي</p>
+          <h1 class="page-title" data-i18n="acc.h1">حسابي والإعدادات</h1>
+          <p class="page-desc" data-i18n="acc.desc">راتبك وحدك الآمن، والمظهر واللغة، وأمان حسابك وبياناتك — كلها بمكان واحد.</p>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn-gold" id="head-signup" href="/login?mode=signup&amp;next=%2Faccount" data-i18n="acc.signup">سوّ حساب</a>
+          <button type="button" class="btn btn-ghost" id="head-export" hidden>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>
+            <span data-i18n="acc.exportShort">صدّر بياناتك</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="grid gap-lg acc-grid">
+        <!-- ===================== side: profile + section nav ===================== -->
+        <aside class="lg-col-4 acc-aside">
+          <section class="card acc-profile" aria-labelledby="profile-name">
+            <div class="profile-top">
+              <span class="avatar acc-avatar" id="acc-avatar" aria-hidden="true">
+                <svg class="ico" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg>
+              </span>
+              <div class="profile-id">
+                <h2 class="profile-name" id="profile-name" data-i18n="auth.guest">ضيف</h2>
+                <p class="profile-email" id="profile-email" dir="ltr" hidden></p>
+                <span class="chip chip-none" id="profile-chip" data-i18n="acc.chipGuest">بياناتك بهالمتصفح بس</span>
+              </div>
+            </div>
+            <dl class="profile-stats">
+              <div><dt data-i18n="acc.stCount">أقساط</dt><dd class="num" id="st-count">0</dd></div>
+              <div><dt data-i18n="acc.stPaid">أشهر مدفوعة</dt><dd class="num" id="st-paid">0</dd></div>
+              <div><dt data-i18n="acc.stLimit">الحد الآمن</dt><dd class="num" id="st-limit">40%</dd></div>
+            </dl>
+            <div class="profile-actions" id="profile-guest-actions">
+              <a class="btn btn-gold btn-sm" href="/login?mode=signup&amp;next=%2Faccount" data-i18n="acc.signup">سوّ حساب</a>
+              <a class="btn btn-ghost btn-sm" href="/login?next=%2Faccount" data-i18n="auth.login">دخول</a>
+            </div>
+            <div class="profile-actions" id="profile-user-actions" hidden>
+              <a class="btn btn-ghost btn-sm" href="/app" data-i18n="nav.app">لوحتي</a>
+              <button type="button" class="btn btn-danger-ghost btn-sm" id="acc-logout">
+                <span class="spinner" aria-hidden="true"></span>
+                <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4M6 12h10"/></svg>
+                <span data-i18n="auth.logout">خروج</span>
+              </button>
+            </div>
+          </section>
+
+          <nav class="card acc-nav" data-i18n-aria-label="acc.navLabel" aria-label="أقسام الصفحة">
+            <ul>
+              <li><a href="#sec-salary"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.salaryTitle">الراتب والحد الآمن</span></a></li>
+              <li><a href="#sec-appearance"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.appearanceTitle">المظهر</span></a></li>
+              <li><a href="#sec-language"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.languageTitle">اللغة</span></a></li>
+              <li><a href="#sec-security"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.securityTitle">الأمان</span></a></li>
+              <li><a href="#sec-data"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.dataTitle">بياناتك</span></a></li>
+              <li id="nav-danger" hidden><a href="#sec-danger"><span class="nav-dot is-danger" aria-hidden="true"></span><span data-i18n="acc.dangerTitle">منطقة الخطر</span></a></li>
+            </ul>
+          </nav>
+        </aside>
+
+        <!-- ===================== main column ===================== -->
+        <div class="lg-col-8 acc-main">
+          <!-- guest invite -->
+          <section class="card card-feature acc-invite" id="acc-invite" aria-labelledby="invite-title">
+            <div class="invite-art" aria-hidden="true">
+              <svg viewBox="0 0 120 120" focusable="false">
+                <defs>
+                  <linearGradient id="inv-gold" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#ffd27a"/>
+                    <stop offset="1" stop-color="#e9a425"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="60" cy="60" r="56" fill="#ffffff" fill-opacity=".06"/>
+                <path d="M60 18 30 30v22c0 19 12.6 34.4 30 40.6C77.4 86.4 90 71 90 52V30z" fill="url(#inv-gold)"/>
+                <path d="m47 56 9 9 18-19" fill="none" stroke="#0f2a4a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="invite-copy">
+              <h2 id="invite-title" data-i18n="acc.inviteTitle">احفظ أقساطك بحساب</h2>
+              <p data-i18n="acc.inviteDesc">حالياً بياناتك محفوظة بهالمتصفح بس. سوّ حساب بإيميل وباسوورد، وكل الي سجلته ينتقل له تلقائياً وتفتحه من أي جهاز.</p>
+              <ul class="invite-points">
+                <li data-i18n="acc.invite1">من أي جهاز</li>
+                <li data-i18n="acc.invite2">ينتقل تلقائياً</li>
+                <li data-i18n="acc.invite3">مجاني</li>
+              </ul>
+              <div class="btn-row">
+                <a class="btn btn-gold" href="/login?mode=signup&amp;next=%2Faccount" data-i18n="acc.signup">سوّ حساب</a>
+                <a class="btn btn-glass" href="/login?next=%2Faccount" data-i18n="acc.haveAccount">عندي حساب</a>
+              </div>
+            </div>
+          </section>
+
+          <!-- salary + safe limit + salary day -->
+          <section class="card acc-section" id="sec-salary" aria-labelledby="salary-title">
+            <div class="card-head">
+              <span class="card-ico gold" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.5v.01M17.5 14.5v.01"/></svg></span>
+              <div>
+                <h2 id="salary-title" data-i18n="acc.salaryTitle">الراتب والحد الآمن</h2>
+                <p class="hint" data-i18n="acc.salaryDesc">نحسب منها نسبة أقساطك وتنبيهات «أقدر أشتريه؟» ومواعيد الراتب بالتقويم.</p>
+              </div>
+            </div>
+            <form id="salary-form" novalidate>
+              <div class="form-row three">
+                <div class="field">
+                  <label for="f-salary" data-i18n="acc.salary">الراتب الشهري</label>
+                  <div class="input-group">
+                    <input id="f-salary" name="salary" inputmode="decimal" autocomplete="off" placeholder="مثلاً 1200" data-i18n-placeholder="acc.salaryPh" aria-describedby="f-salary-err">
+                    <span class="input-affix" data-i18n="common.kwd">د.ك</span>
+                  </div>
+                  <span class="err" id="f-salary-err" aria-live="polite"></span>
+                </div>
+                <div class="field">
+                  <label for="f-limit" data-i18n="acc.limit">الحد الآمن</label>
+                  <div class="input-group">
+                    <input id="f-limit" name="limit" inputmode="decimal" autocomplete="off" placeholder="40" aria-describedby="f-limit-hint f-limit-err">
+                    <span class="input-affix">%</span>
+                  </div>
+                  <span class="hint" id="f-limit-hint" data-i18n="acc.limitHint">الافتراضي ⁦40%⁩. اختار أقل إذا تبي تكون أريح.</span>
+                  <span class="err" id="f-limit-err" aria-live="polite"></span>
+                </div>
+                <div class="field">
+                  <label for="f-day" data-i18n="acc.salaryDay">يوم نزول الراتب</label>
+                  <select id="f-day" name="salaryDay" aria-describedby="f-day-err">
+                    <option value="" data-i18n="acc.dayNone">مو محدد</option>
+                  </select>
+                  <span class="err" id="f-day-err" aria-live="polite"></span>
+                </div>
+              </div>
+              <div class="seg limit-quick" role="radiogroup" data-i18n-aria-label="acc.limitQuick" aria-label="نسب جاهزة للحد الآمن">
+                <label><input type="radio" name="limitQuick" value="30"><span>30%</span></label>
+                <label><input type="radio" name="limitQuick" value="35"><span>35%</span></label>
+                <label><input type="radio" name="limitQuick" value="40"><span>40%</span></label>
+                <label><input type="radio" name="limitQuick" value="50"><span>50%</span></label>
+              </div>
+              <div class="salary-preview" id="salary-preview" aria-live="polite">
+                <div class="sp-item">
+                  <span class="sp-label" data-i18n="acc.pvLimit">حدك الآمن بالشهر</span>
+                  <strong class="sp-value num" id="pv-limit">—</strong>
+                </div>
+                <div class="sp-item">
+                  <span class="sp-label" data-i18n="acc.pvNext">راتبك الجاي</span>
+                  <strong class="sp-value" id="pv-next">—</strong>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-gold" id="salary-save">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span class="btn-label" data-i18n="common.save">حفظ</span>
+                </button>
+                <span class="save-state hint" id="salary-state" aria-live="polite"></span>
+              </div>
+            </form>
+          </section>
+
+          <!-- appearance + language -->
+          <div class="grid-2 acc-prefs">
+            <section class="card acc-section" id="sec-appearance" aria-labelledby="appearance-title">
+              <div class="card-head">
+                <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span>
+                <div>
+                  <h2 id="appearance-title" data-i18n="acc.appearanceTitle">المظهر</h2>
+                  <p class="hint" data-i18n="acc.appearanceDesc">فاتح، داكن، أو خله يتبع جهازك.</p>
+                </div>
+              </div>
+              <div class="seg pref-seg" role="radiogroup" aria-labelledby="appearance-title">
+                <label><input type="radio" name="theme" value="light"><span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><b data-i18n="acc.themeLight">فاتح</b></span></label>
+                <label><input type="radio" name="theme" value="dark"><span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><b data-i18n="acc.themeDark">داكن</b></span></label>
+                <label><input type="radio" name="theme" value="system"><span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/></svg><b data-i18n="acc.themeSystem">حسب الجهاز</b></span></label>
+              </div>
+            </section>
+
+            <section class="card acc-section" id="sec-language" aria-labelledby="language-title">
+              <div class="card-head">
+                <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/></svg></span>
+                <div>
+                  <h2 id="language-title" data-i18n="acc.languageTitle">اللغة</h2>
+                  <p class="hint" data-i18n="acc.languageDesc">لغة الواجهة على هالجهاز.</p>
+                </div>
+              </div>
+              <div class="seg pref-seg" role="radiogroup" aria-labelledby="language-title">
+                <label><input type="radio" name="lang" value="ar"><span lang="ar" dir="rtl"><b>العربية</b></span></label>
+                <label><input type="radio" name="lang" value="en"><span lang="en" dir="ltr"><b>English</b></span></label>
+              </div>
+            </section>
+          </div>
+
+          <!-- security -->
+          <section class="card acc-section" id="sec-security" aria-labelledby="security-title">
+            <div class="card-head">
+              <span class="card-ico ok" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg></span>
+              <div>
+                <h2 id="security-title" data-i18n="acc.securityTitle">الأمان</h2>
+                <p class="hint" data-i18n="acc.securityDesc">غيّر الباسوورد. الجهاز الحالي يظل داخل، وأي جهاز ثاني يطلع.</p>
+              </div>
+            </div>
+
+            <div class="locked" id="security-guest">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+              <p data-i18n="acc.securityGuest">تغيير الباسوورد يحتاج حساب. سوّ حساب عشان تحمي أقساطك بباسوورد.</p>
+            </div>
+
+            <form id="password-form" novalidate hidden>
+              <div class="form-alert" id="password-alert" role="alert" aria-live="assertive"></div>
+              <input type="email" name="username" id="pw-username" autocomplete="username" hidden readonly>
+              <div class="field">
+                <label for="pw-current" data-i18n="acc.pwCurrent">الباسوورد الحالي</label>
+                <div class="pw-wrap">
+                  <input id="pw-current" name="current" type="password" autocomplete="current-password" maxlength="200" aria-describedby="pw-current-err">
+                  <button type="button" class="pw-toggle" data-toggle="pw-current" aria-controls="pw-current" aria-pressed="false" data-i18n-aria-label="acc.show" aria-label="أظهر الباسوورد">
+                    <svg class="ico ico-eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="ico ico-eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3l18 18"/><path d="M10.6 5.6A10 10 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.1 3.9M6.3 6.9C3.9 8.6 2.5 12 2.5 12S6 18.5 12 18.5a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                  </button>
+                </div>
+                <span class="err" id="pw-current-err" aria-live="polite"></span>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label for="pw-new" data-i18n="acc.pwNew">الباسوورد الجديد</label>
+                  <div class="pw-wrap">
+                    <input id="pw-new" name="next" type="password" autocomplete="new-password" minlength="8" maxlength="200" aria-describedby="pw-strength-label pw-new-err">
+                    <button type="button" class="pw-toggle" data-toggle="pw-new" aria-controls="pw-new" aria-pressed="false" data-i18n-aria-label="acc.show" aria-label="أظهر الباسوورد">
+                      <svg class="ico ico-eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="ico ico-eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3l18 18"/><path d="M10.6 5.6A10 10 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.1 3.9M6.3 6.9C3.9 8.6 2.5 12 2.5 12S6 18.5 12 18.5a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                    </button>
+                  </div>
+                  <div class="pw-strength" data-level="empty">
+                    <span class="pw-meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                    <span class="pw-label" id="pw-strength-label" aria-live="polite"></span>
+                  </div>
+                  <span class="err" id="pw-new-err" aria-live="polite"></span>
+                </div>
+                <div class="field">
+                  <label for="pw-confirm" data-i18n="acc.pwConfirm">أكّد الباسوورد الجديد</label>
+                  <div class="pw-wrap">
+                    <input id="pw-confirm" name="confirm" type="password" autocomplete="new-password" maxlength="200" aria-describedby="pw-confirm-err">
+                    <button type="button" class="pw-toggle" data-toggle="pw-confirm" aria-controls="pw-confirm" aria-pressed="false" data-i18n-aria-label="acc.show" aria-label="أظهر الباسوورد">
+                      <svg class="ico ico-eye" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg class="ico ico-eye-off" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3l18 18"/><path d="M10.6 5.6A10 10 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.1 3.9M6.3 6.9C3.9 8.6 2.5 12 2.5 12S6 18.5 12 18.5a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                    </button>
+                  </div>
+                  <span class="err" id="pw-confirm-err" aria-live="polite"></span>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn" id="password-save">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span class="btn-label" data-i18n="acc.pwSave">غيّر الباسوورد</span>
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <!-- data export -->
+          <section class="card acc-section" id="sec-data" aria-labelledby="data-title">
+            <div class="card-head">
+              <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M12 11v6M9.5 14.5 12 17l2.5-2.5"/></svg></span>
+              <div>
+                <h2 id="data-title" data-i18n="acc.dataTitle">بياناتك</h2>
+                <p class="hint" data-i18n="acc.dataDesc">نزّل أقساطك والأشهر الي علّمتها مدفوعة بملف CSV يفتح بالإكسل وبالعربي.</p>
+              </div>
+            </div>
+            <div class="data-row">
+              <div class="data-summary">
+                <div class="ds-item"><strong class="num" id="ds-count">0</strong><span data-i18n="acc.dsCount">عدد الأقساط</span></div>
+                <div class="ds-item"><strong class="num" id="ds-paid">0</strong><span data-i18n="acc.dsPaid">الأشهر المدفوعة</span></div>
+                <div class="ds-item"><strong class="num" id="ds-monthly">—</strong><span data-i18n="acc.dsMonthly">مجموعها بالشهر</span></div>
+              </div>
+              <div class="data-actions">
+                <button type="button" class="btn btn-gold" id="export-csv">
+                  <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>
+                  <span data-i18n="acc.exportCsv">نزّل CSV</span>
+                </button>
+                <a class="btn btn-ghost" href="/report" data-i18n="acc.openReport">التقرير الشهري PDF</a>
+              </div>
+            </div>
+            <p class="hint data-empty" id="data-empty" hidden><span data-i18n="acc.dataEmpty">ما عندك أقساط تصدّرها للحين.</span> <a href="/installments?add=1" data-i18n="acc.dataAdd">أضف أول قسط</a></p>
+          </section>
+
+          <!-- danger zone (accounts only) -->
+          <section class="card acc-section danger-zone" id="sec-danger" aria-labelledby="danger-title" hidden>
+            <div class="card-head">
+              <span class="card-ico over" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17.2v.1"/></svg></span>
+              <div>
+                <h2 id="danger-title" data-i18n="acc.dangerTitle">منطقة الخطر</h2>
+                <p class="hint" data-i18n="acc.dangerDesc">حذف الحساب نهائي: ينحذف حسابك وكل أقساطك وراتبك وسجل الدفع، وما نقدر نرجعها.</p>
+              </div>
+            </div>
+            <div class="danger-row">
+              <ul class="danger-list">
+                <li data-i18n="acc.danger1">يطلع من كل الأجهزة على طول</li>
+                <li data-i18n="acc.danger2">نصيحة: نزّل نسخة CSV قبل لا تحذف</li>
+              </ul>
+              <button type="button" class="btn btn-danger" id="delete-account">
+                <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A2 2 0 0 0 9 21h6a2 2 0 0 0 2-1.5L18 7M9 7V4.5h6V7"/></svg>
+                <span data-i18n="acc.deleteBtn">احذف حسابي</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <nav id="tabbar"></nav>
+  <div id="toast" hidden></div>
+  <div id="banner" hidden></div>
+  <script type="module" src="/js/pages/account.js"></script>
+</body>
+</html>
