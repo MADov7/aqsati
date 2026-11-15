@@ -72,6 +72,59 @@ function toast(text) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
+// Toast with one action button (used for «تراجع»).
+function toastAction(text, label, onAction, ms = 5000) {
+  const el = $('#toast');
+  el.innerHTML = '';
+  const span = document.createElement('span');
+  span.textContent = text;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'toast-btn';
+  b.textContent = label;
+  b.addEventListener('click', () => {
+    clearTimeout(toastTimer);
+    el.hidden = true;
+    onAction();
+  }, { once: true });
+  el.append(span, b);
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, ms);
+}
+
+// ---------- delete with undo ----------
+const pending = new Map(); // id -> { item, index, timer }
+
+function scheduleRemove(token, id) {
+  const index = state.installments.findIndex((i) => i.id === id);
+  if (index < 0) return;
+  const [item] = state.installments.splice(index, 1);
+  render();
+  const timer = setTimeout(async () => {
+    pending.delete(id);
+    try {
+      applyState(await rpc('aqsati_remove', { p_token: token, p_id: id }));
+      showBanner('');
+    } catch (err) {
+      state.installments.splice(Math.min(index, state.installments.length), 0, item);
+      render();
+      showBanner(errorText(err));
+      toast(errorText(err));
+    }
+  }, 5000);
+  pending.set(id, { item, index, timer });
+  toastAction('انحذف القسط', 'تراجع', () => {
+    const p = pending.get(id);
+    if (!p) return;
+    clearTimeout(p.timer);
+    pending.delete(id);
+    state.installments.splice(Math.min(p.index, state.installments.length), 0, p.item);
+    render();
+    toast('رجّعنا القسط ✓');
+  });
+}
+
 function showErrors(form, errors) {
   form.querySelectorAll('[data-err]').forEach((el) => {
     const key = el.dataset.err;
@@ -287,8 +340,9 @@ function bindForms(token) {
     renderCheck();
   });
 
-  // Two-step delete inside the page (native confirm() is blocked in some in-app browsers).
-  $('#dash').addEventListener('click', async (e) => {
+  // Two-step delete inside the page (native confirm() is blocked in some in-app browsers),
+  // then a 5-second «تراجع» window before the delete is actually sent to the server.
+  $('#dash').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-del]');
     if (!btn) return;
     if (btn.dataset.armed !== '1') {
@@ -303,16 +357,17 @@ function bindForms(token) {
       }, 4000);
       return;
     }
-    btn.disabled = true;
-    try {
-      applyState(await rpc('aqsati_remove', { p_token: token, p_id: btn.dataset.del }));
-      showBanner('');
-      toast('انحذف القسط');
-    } catch (err) {
-      btn.disabled = false;
-      showBanner(errorText(err));
-      toast(errorText(err));
+    scheduleRemove(token, btn.dataset.del);
+  });
+
+  // If the page closes during the undo window, still send the pending deletes.
+  window.addEventListener('pagehide', () => {
+    for (const [id, p] of pending) {
+      clearTimeout(p.timer);
+      const body = JSON.stringify({ fn: 'aqsati_remove', args: { p_token: token, p_id: id } });
+      navigator.sendBeacon?.('/api/rpc', new Blob([body], { type: 'application/json' }));
     }
+    pending.clear();
   });
 }
 

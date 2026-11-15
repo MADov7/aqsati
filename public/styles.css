@@ -242,6 +242,21 @@ input[aria-invalid='true'], select[aria-invalid='true'] { border-color: var(--ov
   z-index: 10;
 }
 
+.toast { display: flex; align-items: center; gap: 12px; }
+.toast-btn {
+  font: inherit;
+  font-weight: 700;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  min-height: 36px;
+  background: var(--gold);
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.privacy { margin: 6px 0 0; font-size: 0.85rem; opacity: 0.85; }
+
 @media (max-width: 860px) {
   .grid2 { grid-template-columns: minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
