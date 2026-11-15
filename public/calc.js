@@ -164,7 +164,8 @@ export function affordability({ price, count, salary, safeLimit, currentMonthly 
 
 export function validateProfileInput(raw) {
   const errors = {};
-  const salary = parseAmount(raw.salary);
+  // validate the rounded values — that's what gets saved
+  const salary = round3(parseAmount(raw.salary));
   const limit = parseAmount(raw.limit);
   if (!(salary > 0) || salary >= 1e6) errors.salary = 'حط راتب صحيح أكبر من صفر';
   if (!(limit >= 1 && limit <= 100)) errors.limit = 'نسبة من 1 إلى 100';
@@ -175,7 +176,7 @@ export function validateInstallmentInput(raw) {
   const errors = {};
   const provider = String(raw.provider ?? '').trim();
   const title = String(raw.title ?? '').trim();
-  const monthly = parseAmount(raw.monthly);
+  const monthly = round3(parseAmount(raw.monthly));
   const dueDay = parseWhole(raw.dueDay);
   const remaining = parseWhole(raw.remaining);
   if (!provider || provider.length > 40) errors.provider = 'اكتب اسم الجهة';
@@ -188,7 +189,7 @@ export function validateInstallmentInput(raw) {
 
 export function validateCheckInput(raw) {
   const errors = {};
-  const price = parseAmount(raw.price);
+  const price = round3(parseAmount(raw.price));
   const count = parseWhole(raw.count);
   if (!(price > 0) || price >= 1e7) errors.price = 'حط سعر صحيح أكبر من صفر';
   if (!(count >= 1 && count <= 360)) errors.count = 'عدد من 1 إلى 360';

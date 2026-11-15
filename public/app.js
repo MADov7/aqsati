@@ -90,7 +90,9 @@ async function withBusy(form, task) {
     await task();
     showBanner('');
   } catch (err) {
+    // Banner sits at the top (off-screen on a phone), so also toast where the user is.
     showBanner(errorText(err));
+    toast(errorText(err));
   } finally {
     btn.disabled = false;
   }
@@ -198,6 +200,7 @@ function renderCheck() {
     <button type="button" class="btn btn-ghost" id="use-check">أضفه لأقساطي</button>`;
   box.hidden = false;
   box.querySelector('#use-check').addEventListener('click', () => {
+    state.checkApplied = true;
     $('#monthly').value = r.newMonthly.toFixed(3);
     $('#remaining').value = String(count);
     $('#add-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -242,10 +245,16 @@ function bindForms(token) {
       remaining: $('#remaining').value,
     });
     showErrors(form, v.errors);
+    if (picked === 'أخرى' && v.errors.provider) {
+      // the empty field is the "other provider" name, not the dropdown
+      $('#provider').setAttribute('aria-invalid', 'false');
+      $('#provider-other').setAttribute('aria-invalid', 'true');
+      $('#provider-other').focus();
+    }
     if (!v.ok) return;
     withBusy(form, async () => {
       const first = C.firstDueDate(v.value.dueDay, C.todayISO());
-      applyState(await rpc('aqsati_add', {
+      const next = await rpc('aqsati_add', {
         p_token: token,
         p_provider: v.value.provider,
         p_title: v.value.title,
@@ -253,7 +262,15 @@ function bindForms(token) {
         p_due_day: v.value.dueDay,
         p_remaining: v.value.remaining,
         p_first_due: first,
-      }));
+      });
+      // The checked purchase is now a real installment — clear the old verdict so it isn't counted twice.
+      if (state.checkApplied) {
+        state.check = null;
+        state.checkApplied = false;
+        $('#check-result').hidden = true;
+        $('#check-result').innerHTML = '';
+      }
+      applyState(next);
       form.reset();
       $('#other-wrap').hidden = true;
       toast('انضاف القسط ✓');
@@ -294,6 +311,7 @@ function bindForms(token) {
     } catch (err) {
       btn.disabled = false;
       showBanner(errorText(err));
+      toast(errorText(err));
     }
   });
 }

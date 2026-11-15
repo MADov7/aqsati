@@ -29,10 +29,10 @@ const TYPES = {
   '.ico': 'image/x-icon',
 };
 
+// No X-Frame-Options here: Replit shows the app inside an iframe (Webview/Preview).
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'X-Frame-Options': 'DENY',
 };
 
 const server = http.createServer(async (req, res) => {
