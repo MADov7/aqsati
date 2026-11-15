@@ -1,4 +1,5 @@
-// أقساطي — hero 3D scene: glossy gold «د.ك» coins and floating glass instalment cards.
+// أقساطي — hero 3D scene: a fanned "hand" of glass installment cards (one per provider, names as plain
+// text — no logos), glossy gold «د.ك» coins and gold dust.
 // three.js r170 is imported straight from jsDelivr (no build step, no importmap). If WebGL2 isn't there,
 // the import fails, or the GPU drops the context, the inline SVG under the canvas simply stays visible.
 // Shared copy for the multi-page app (moved from /scene.js): import("/js/scene.js").then((m) => m.mountScene(box)).
@@ -8,16 +9,18 @@ const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module
 const GOLD = 0xf5b942;
 const FONT = '"IBM Plex Sans Arabic", Tahoma, Arial, sans-serif';
 
+// Example installments, in reading order (the first one sits at the back of the fan, the last in front).
+// The same example numbers are used by the landing page's phone mockup and the SVG fallback.
 const CARD_LABELS = {
   ar: [
-    { tag: 'جوال جديد', amount: '45.500 د.ك', step: 'قسط 2 من 4', progress: 0.5 },
-    { tag: 'سيارة', amount: '180.000 د.ك', step: 'قسط 14 من 48', progress: 0.29 },
-    { tag: 'أثاث البيت', amount: '62.250 د.ك', step: 'قسط 5 من 6', progress: 0.83 },
+    { provider: 'تابي', kind: 'القسط الشهري', amount: '45.500 د.ك', step: 'قسط 2 من 4', progress: 2 / 4, accent: '#b9a2ff', tint: 0x2c3f7a },
+    { provider: 'تمارا', kind: 'القسط الشهري', amount: '62.250 د.ك', step: 'قسط 5 من 6', progress: 5 / 6, accent: '#ff9fb2', tint: 0x3a3a6e },
+    { provider: 'قرض بنك', kind: 'القسط الشهري', amount: '180.000 د.ك', step: 'قسط 14 من 48', progress: 14 / 48, accent: '#8cc8ff', tint: 0x1f4f86 },
   ],
   en: [
-    { tag: 'New phone', amount: 'KWD 45.500', step: 'Payment 2 of 4', progress: 0.5 },
-    { tag: 'Car', amount: 'KWD 180.000', step: 'Payment 14 of 48', progress: 0.29 },
-    { tag: 'Home furniture', amount: 'KWD 62.250', step: 'Payment 5 of 6', progress: 0.83 },
+    { provider: 'Tabby', kind: 'Monthly payment', amount: 'KWD 45.500', step: 'Payment 2 of 4', progress: 2 / 4, accent: '#b9a2ff', tint: 0x2c3f7a },
+    { provider: 'Tamara', kind: 'Monthly payment', amount: 'KWD 62.250', step: 'Payment 5 of 6', progress: 5 / 6, accent: '#ff9fb2', tint: 0x3a3a6e },
+    { provider: 'Bank loan', kind: 'Monthly payment', amount: 'KWD 180.000', step: 'Payment 14 of 48', progress: 14 / 48, accent: '#8cc8ff', tint: 0x1f4f86 },
   ],
 };
 /** The page language (set on <html> by boot.js / core.js); the cards are redrawn on `langchange`. */
@@ -114,8 +117,8 @@ async function createScene(THREE, box, canvas) {
   key.position.set(-4, 6, 7);
   const rim = new THREE.DirectionalLight(0x86b2ff, 1.8);
   rim.position.set(6, -3, -5);
-  const warm = new THREE.PointLight(GOLD, 22, 14, 2);
-  warm.position.set(1.8, 0.6, 4.2);
+  const warm = new THREE.PointLight(GOLD, 7, 14, 2);
+  warm.position.set(0, -2.4, 3.6);
   scene.add(key, rim, warm);
 
   const root = new THREE.Group();
@@ -167,7 +170,8 @@ async function createScene(THREE, box, canvas) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, w < 440 ? 1.5 : 1.75));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.position.z = camera.aspect < 1 ? BASE_Z / Math.max(0.7, camera.aspect) : BASE_Z;
+    const baseZ = w < 440 ? 10.6 : BASE_Z; // phones: a little closer, so the cards stay readable
+    camera.position.z = camera.aspect < 1 ? baseZ / Math.max(0.7, camera.aspect) : baseZ;
     camera.updateProjectionMatrix();
     const rect = box.getBoundingClientRect();
     boxBottom = Math.max(1, rect.bottom + window.scrollY);
@@ -185,10 +189,10 @@ async function createScene(THREE, box, canvas) {
     camera.position.y = -pointer.y * 0.5;
     camera.lookAt(0, 0, 0);
     const k = Math.min(1, dt * 4);
-    root.rotation.y += (scrollP * 0.9 - root.rotation.y) * k;
-    root.rotation.x += (scrollP * 0.28 - root.rotation.x) * k;
-    root.position.y += (scrollP * 0.8 - root.position.y) * k;
-    world.update(t, pointer);
+    root.rotation.y += (scrollP * 0.5 - root.rotation.y) * k;
+    root.rotation.x += (scrollP * 0.22 - root.rotation.x) * k;
+    root.position.y += (scrollP * 0.7 - root.position.y) * k;
+    world.update(t, pointer, scrollP);
   }
 
   function renderFrame(now, still = false) {
@@ -361,7 +365,10 @@ function buildStudio(THREE) {
 
 function buildWorld(THREE, small, maxAniso, lang = 'ar') {
   const ltr = lang === 'en';
-  const labels = (CARD_LABELS[lang] || CARD_LABELS.ar).map((l) => ({ ...l, ltr, brand: ltr ? 'Aqsati' : 'أقساطي' }));
+  // Text sits on the reading side of each card, so the fan overlaps from the other side:
+  // Arabic → the leftmost card is in front; English → the rightmost one.
+  const dir = ltr ? 1 : -1;
+  const labels = (CARD_LABELS[lang] || CARD_LABELS.ar).map((l) => ({ ...l, ltr }));
   const bag = new Set();
   const track = (x) => {
     bag.add(x);
@@ -373,18 +380,25 @@ function buildWorld(THREE, small, maxAniso, lang = 'ar') {
   const makeCoin = coinFactory(THREE, track, small, maxAniso);
   const makeCard = cardFactory(THREE, track, small, maxAniso);
 
-  const coins = [
-    { s: 1.3, p: [0.35, 0.25, 0.9], ry: -0.35, rock: 0.55, main: true },
-    { s: 0.62, p: [-1.85, 1.55, -0.6], ry: 0.4, spin: 0.55 },
-    { s: 0.7, p: [1.95, -1.6, 0.2], ry: 1.2, spin: -0.42 },
-    { s: 0.5, p: [2.15, 1.8, -1.6], ry: -0.8, rock: 0.7, big: true },
-    { s: 0.48, p: [-2.1, -1.55, 0.7], ry: 2.0, spin: 0.6, big: true },
-  ].filter((c) => !(small && c.big));
+  // ---- the hand of cards: each card turns around a pivot far below it, like cards held in a hand ----
+  const hand = new THREE.Group();
+  group.add(hand);
+  const PIVOT = 3.3;
+  const SPREAD = 0.42; // radians between neighbouring cards
+  const HAND_Y = 0.42;
+  const fan = labels.map((label, i) => {
+    const obj = makeCard(label, i);
+    hand.add(obj);
+    return { obj, k: i - (labels.length - 1) / 2, phase: i * 1.9 };
+  });
 
-  const cards = [
-    { p: [-0.95, -0.75, -1.25], r: [-0.18, 0.5, 0.14], label: labels[0] },
-    { p: [1.25, 1.05, -2.3], r: [0.16, -0.45, -0.12], label: labels[1] },
-    { p: [0.55, -2.0, -2.9], r: [-0.4, -0.2, 0.06], label: labels[2], big: true },
+  // ---- coins around the fan (mirrored with the reading direction) ----
+  const coins = [
+    { s: 0.8, p: [-0.35 * dir, -1.78, 1.3], ry: -0.4 * dir, rock: 0.5, main: true },
+    { s: 0.58, p: [-2.45 * dir, 1.75, -0.7], ry: 0.4, spin: 0.55 },
+    { s: 0.62, p: [2.55 * dir, -1.35, 0.5], ry: 1.2, spin: -0.42 },
+    { s: 0.42, p: [2.35 * dir, 2.05, -1.7], ry: -0.8, rock: 0.7, big: true },
+    { s: 0.4, p: [-2.75 * dir, -0.55, 0.9], ry: 2.0, spin: 0.6, big: true },
   ].filter((c) => !(small && c.big));
 
   const rand = rng(7);
@@ -398,30 +412,12 @@ function buildWorld(THREE, small, maxAniso, lang = 'ar') {
       baseY: c.p[1],
       baseRX: -0.12,
       baseRY: c.ry,
-      amp: 0.12 + rand() * 0.1,
+      amp: 0.1 + rand() * 0.08,
       speed: 0.6 + rand() * 0.5,
       phase: rand() * Math.PI * 2,
       spin: c.spin || 0,
       rock: c.rock || 0,
       main: !!c.main,
-    });
-  }
-  for (const c of cards) {
-    const obj = makeCard(c.label);
-    obj.position.set(...c.p);
-    obj.rotation.set(...c.r);
-    group.add(obj);
-    items.push({
-      obj,
-      baseY: c.p[1],
-      baseRX: c.r[0],
-      baseRY: c.r[1],
-      amp: 0.16 + rand() * 0.08,
-      speed: 0.35 + rand() * 0.25,
-      phase: rand() * Math.PI * 2,
-      spin: 0,
-      rock: 0.16,
-      card: true,
     });
   }
 
@@ -430,12 +426,27 @@ function buildWorld(THREE, small, maxAniso, lang = 'ar') {
 
   return {
     group,
-    update(t, pointer) {
+    update(t, pointer, scrollP = 0) {
+      // the fan "breathes" a little and opens up as the visitor scrolls past it
+      const spread = SPREAD * (1 + 0.05 * Math.sin(t * 0.55)) + scrollP * 0.12;
+      for (const c of fan) {
+        const th = -dir * c.k * spread;
+        c.obj.position.set(
+          -PIVOT * Math.sin(th),
+          PIVOT * Math.cos(th) - PIVOT + Math.sin(t * 0.7 + c.phase) * 0.035,
+          (c.k + 1) * 0.2,
+        );
+        c.obj.rotation.set(Math.sin(t * 0.4 + c.phase) * 0.035, Math.sin(t * 0.45 + c.phase) * 0.06, th);
+      }
+      hand.position.y = HAND_Y + Math.sin(t * 0.5) * 0.07;
+      hand.rotation.y = -dir * 0.14 + pointer.x * 0.3;
+      hand.rotation.x = 0.06 + pointer.y * 0.16;
+
       for (const it of items) {
         it.obj.position.y = it.baseY + Math.sin(t * it.speed + it.phase) * it.amp;
         if (it.spin) it.obj.rotation.y = it.baseRY + t * it.spin;
         else it.obj.rotation.y = it.baseRY + Math.sin(t * 0.45 + it.phase) * it.rock + (it.main ? pointer.x * 0.4 : 0);
-        it.obj.rotation.x = it.baseRX + Math.sin(t * 0.38 + it.phase) * (it.card ? 0.06 : 0.1) + (it.main ? pointer.y * 0.25 : 0);
+        it.obj.rotation.x = it.baseRX + Math.sin(t * 0.38 + it.phase) * 0.1 + (it.main ? pointer.y * 0.25 : 0);
       }
       dust.rotation.y = t * 0.035;
     },
@@ -606,20 +617,8 @@ function cardFactory(THREE, track, small, maxAniso) {
     curveSegments: small ? 6 : 12,
   }));
   geo.center();
-  const glass = track(new THREE.MeshPhysicalMaterial({
-    color: 0xdfeaff,
-    metalness: 0,
-    roughness: 0.08,
-    transparent: true,
-    opacity: 0.2,
-    clearcoat: 1,
-    clearcoatRoughness: 0.06,
-    envMapIntensity: 1.7,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  }));
   const edges = track(new THREE.EdgesGeometry(geo, 25));
-  const edgeMat = track(new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 }));
+  const edgeMat = track(new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 }));
   const chipGeo = track(new THREE.ExtrudeGeometry(roundedRect(THREE, 0.42, 0.32, 0.07), {
     depth: 0.02, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2, curveSegments: 6,
   }));
@@ -627,19 +626,34 @@ function cardFactory(THREE, track, small, maxAniso) {
   const chipMat = track(new THREE.MeshStandardMaterial({ color: GOLD, metalness: 1, roughness: 0.25 }));
   const labelGeo = track(new THREE.PlaneGeometry(w - 0.1, h - 0.1));
 
-  return (label) => {
+  // `layer` = position in the fan (0 = back). Transparent parts are drawn back → front explicitly,
+  // so a back card's text never paints over the glass of the card in front of it.
+  return (label, layer = 0) => {
+    const glass = track(new THREE.MeshPhysicalMaterial({
+      color: label.tint ?? 0x1f4f86,
+      metalness: 0.1,
+      roughness: 0.22,
+      transparent: true,
+      opacity: 0.88,
+      clearcoat: 1,
+      clearcoatRoughness: 0.18,
+      envMapIntensity: 1.25,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }));
     const tex = track(cardTexture(THREE, label, small));
     tex.anisotropy = Math.min(4, maxAniso);
     const labelMat = track(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
     const card = new THREE.Group();
     const body = new THREE.Mesh(geo, glass);
-    body.renderOrder = 1;
+    body.renderOrder = 10 + layer * 3;
     const outline = new THREE.LineSegments(edges, edgeMat);
+    outline.renderOrder = 10 + layer * 3;
     const chip = new THREE.Mesh(chipGeo, chipMat);
-    chip.position.set(label.ltr ? w / 2 - 0.48 : -w / 2 + 0.48, 0.1, 0.07); // opposite the text
+    chip.position.set(label.ltr ? w / 2 - 0.42 : -w / 2 + 0.42, 0.42, 0.07); // opposite the text
     const face = new THREE.Mesh(labelGeo, labelMat);
     face.position.z = 0.056;
-    face.renderOrder = 2;
+    face.renderOrder = 11 + layer * 3;
     card.add(body, outline, chip, face);
     const pivot = new THREE.Group();
     pivot.add(card);
@@ -647,8 +661,8 @@ function cardFactory(THREE, track, small, maxAniso) {
   };
 }
 
-function cardTexture(THREE, { tag, amount, step, progress, ltr = false, brand = 'أقساطي' }, small) {
-  const W = small ? 400 : 560;
+function cardTexture(THREE, { provider, kind, amount, step, progress, accent = '#f5b942', ltr = false }, small) {
+  const W = small ? 420 : 600;
   const H = Math.round(W * (1.6 / 2.6));
   const c = document.createElement('canvas');
   c.width = W;
@@ -656,28 +670,37 @@ function cardTexture(THREE, { tag, amount, step, progress, ltr = false, brand = 
   const g = c.getContext('2d');
   const pad = W * 0.07;
   const tx = ltr ? pad : W - pad; // text starts on the reading side
+  const face = (weight, size) => `${weight} ${Math.round(W * size)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
   g.direction = ltr ? 'ltr' : 'rtl';
   g.textAlign = ltr ? 'left' : 'right';
   g.textBaseline = 'alphabetic';
 
-  g.fillStyle = 'rgba(255, 255, 255, 0.95)';
-  g.font = `700 ${Math.round(W * 0.056)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
-  g.fillText(brand, tx, pad + W * 0.05);
-  g.fillStyle = 'rgba(255, 255, 255, 0.7)';
-  g.font = `500 ${Math.round(W * 0.042)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
-  g.fillText(tag, tx, pad + W * 0.115);
+  // provider name (plain text, no logo) with a small accent dot before it
+  const dotR = W * 0.016;
+  const nameY = pad + W * 0.062;
+  g.fillStyle = accent;
+  g.beginPath();
+  g.arc(ltr ? tx + dotR : tx - dotR, nameY - W * 0.022, dotR, 0, Math.PI * 2);
+  g.fill();
+  const nameX = ltr ? tx + dotR * 2 + W * 0.018 : tx - dotR * 2 - W * 0.018;
+  g.fillStyle = '#ffffff';
+  g.font = face(700, 0.07);
+  g.fillText(provider, nameX, nameY);
+  g.fillStyle = 'rgba(255, 255, 255, 0.74)';
+  g.font = face(500, 0.04);
+  g.fillText(kind, tx, nameY + W * 0.068);
 
   g.fillStyle = '#ffffff';
-  g.font = `700 ${Math.round(W * 0.088)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
-  g.fillText(amount, tx, H * 0.68);
+  g.font = face(700, 0.094);
+  g.fillText(amount, tx, H * 0.66);
 
-  g.fillStyle = 'rgba(255, 255, 255, 0.78)';
-  g.font = `500 ${Math.round(W * 0.04)}px ${ltr ? `Inter, ${FONT}` : FONT}`;
+  g.fillStyle = 'rgba(255, 255, 255, 0.86)';
+  g.font = face(600, 0.042);
   g.fillText(step, tx, H - pad);
 
   // progress bar on the far side, filling in the reading direction (like the page)
-  const bw = W * 0.34;
-  const bh = W * 0.02;
+  const bw = W * 0.32;
+  const bh = W * 0.022;
   const bx = ltr ? W - pad - bw : pad;
   const by = H - pad - bh * 1.2;
   const pill = (x, y, w, hh) => {

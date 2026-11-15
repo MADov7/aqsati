@@ -371,6 +371,55 @@ export const ICONS = {
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
 };
 
+// ---------- the logo: «أقساطى» with two gold coins as the dots of the final yaa ----------
+// The word is outlined from IBM Plex Sans Arabic Bold (shaped exactly as the browser shapes «أقساطي», then the
+// final yaa's two dots removed), so it looks identical in every browser, before the web font loads, and in
+// favicons. The coins replace the yaa's dots, sized like the chosen concept (≈0.3em each) and set just under the letter.
+
+const LOGO_VB = [329.8, 156]; // viewBox width / height; 100 units = 1em of the source font
+const LOGO_PATH = 'M36.1 119.4Q28.1 119.4 21.8 117.6Q15.4 115.7 11 112.2Q6.6 108.6 4.3 103.6Q2 98.5 2 92Q2 87.5 3.3 81.9Q4.5 76.2 6.7 70.9L16.3 73.7Q14.3 78 13.2 82.4Q12 86.8 12 90Q12 96.3 17.3 99.8Q22.6 103.2 32.1 103.2L40.1 103.2Q48.7 103.2 54.4 101.1Q60 99 62.2 95.2L38.6 91.5L38.6 76.5L50.5 78.3Q54.3 78.9 57.3 79.3Q60.3 79.7 62.9 80Q65.4 80.2 67.6 80.3Q69.7 80.4 71.7 80.4L71.7 86.8L73.4 89.4Q73.4 96.5 70.9 102.1Q68.3 107.6 63.5 111.5Q58.7 115.3 51.8 117.4Q44.9 119.4 36.1 119.4ZM89.5 58.7L90.3 59.1Q95.4 53.8 101.2 51.5Q107 49.1 114 49.1Q125.8 49.1 131.7 55.6Q137.6 62 137.6 73.5Q137.6 84.8 131.2 90.1Q124.8 95.4 111 95.4L68.7 95.4L68.7 83.4L71.7 80.4L76.2 80.4L78.7 76.1L78.7 21.4L90.7 21.4L90.7 47ZM111 80.4Q115.8 80.4 119 80.1Q122.1 79.7 124.1 78.9Q126 78 126.8 76.5Q127.6 75 127.6 72.6Q127.6 68.3 124.8 66.2Q122 64.1 115.5 64.1L112.5 64.1Q108 64.1 104.6 64.5Q101.2 64.8 98.6 65.8Q96 66.8 93.9 68.6Q91.8 70.4 89.9 73.3L85.6 79.8L85.9 80.4ZM167 95.4Q156.9 95.4 152 90.6Q147.1 85.8 147.1 75L147.1 21.4L159.1 21.4L159.1 73Q159.1 77.5 160.9 79Q162.7 80.4 167.1 80.4L170.1 80.4L170.1 92.4L167.1 95.4ZM167.1 83.4L170.1 80.4L170.2 80.4Q174.9 80.4 177.3 79.3Q179.7 78.1 181.1 75.2L185 67.1L194.9 71.9L191.4 79.3Q193.8 80.4 196.3 81.1Q198.8 81.8 201.4 81.8Q205.7 81.8 207.6 80Q209.5 78.1 209.5 73.4L209.5 67.1L220.5 67.1L220.5 73.4Q220.5 77.6 221.7 79.5Q222.9 81.4 226.1 81.4L227.1 81.4Q229.7 81.4 231.3 79.5Q232.8 77.6 232.8 73.4L232.8 63.1L243.8 63.1L243.8 73.4Q243.8 80.4 250.8 80.4L254.8 80.4L254.8 92.4L251.8 95.4Q244.2 95.4 240.3 92.4Q236.3 89.3 235.2 82.7L234.6 82.7Q234 89.9 231 93.3Q228 96.6 223 96.6Q217.7 96.6 214.8 93.3Q211.9 89.9 210.8 82.7L210.2 82.7Q209.4 89.9 206.7 93.3Q203.9 96.6 199.4 96.6Q196.5 96.6 193.7 95.6Q190.8 94.5 186.2 91.8L184.2 90.6Q181.1 93.5 177.2 94.5Q173.2 95.4 167.1 95.4ZM251.8 83.4L254.8 80.4L274.2 80.4Q277.6 80.4 280.5 80Q283.3 79.6 285.3 78.6Q287.2 77.6 288.3 75.9Q289.4 74.2 289.4 71.6L289.4 67L288.8 67Q285.9 74.9 275.5 74.9Q267.4 74.9 262.9 70.7Q258.3 66.4 258.3 58.9Q258.3 53.7 259.9 49.3Q261.4 44.8 264.2 41.6Q266.9 38.3 270.7 36.5Q274.4 34.6 278.8 34.6Q288.6 34.6 294.1 42.8Q299.5 51 299.5 65.6Q299.5 74.7 297.9 80.5Q296.3 86.3 293.2 89.6Q290 92.9 285.3 94.2Q280.5 95.4 274.2 95.4L251.8 95.4ZM278.6 61.9Q282.4 61.9 285 61.6Q287.6 61.2 289.2 60.4Q288.6 55.5 285.4 52.6Q282.1 49.6 277.5 49.6Q273.6 49.6 271 51.7Q268.3 53.7 268.3 56.9Q268.3 59.6 270.5 60.8Q272.7 61.9 276.5 61.9ZM285.7 26.6Q283.1 26.6 281.5 25Q279.8 23.4 279.8 19.9Q279.8 16.4 281.5 14.8Q283.1 13.2 285.7 13.2L287.7 13.2Q290.3 13.2 292 14.8Q293.6 16.4 293.6 19.9Q293.6 23.4 292 25Q290.3 26.6 287.7 26.6ZM269.9 26.6Q267.3 26.6 265.7 25Q264 23.4 264 19.9Q264 16.4 265.7 14.8Q267.3 13.2 269.9 13.2L271.9 13.2Q274.5 13.2 276.2 14.8Q277.8 16.4 277.8 19.9Q277.8 23.4 276.2 25Q274.5 26.6 271.9 26.6ZM310 33.6L322 33.6L322 95.4L310 95.4ZM304.1 17.5L308.3 17.5L308.4 17Q306.4 14.8 306.4 11.7Q306.4 7.5 309.5 4.8Q312.5 2 317.3 2Q320.2 2 322.9 3.2Q325.6 4.4 327.6 6.5L322.8 13.2Q320.4 10.8 317.3 10.8Q315.6 10.8 314.6 11.6Q313.5 12.4 313.5 13.5Q313.5 16.8 320.4 16.8L327.8 16.8L327.8 25.6L304.1 25.6Z';
+const LOGO_COINS = [[19.1, 139], [53.1, 139]];
+const LOGO_COIN_R = 15;
+const LOGO_TONES = { light: '#ffffff', dark: '#0f2a4a', auto: '#0f2a4a' };
+
+/**
+ * The أقساطي wordmark as an inline SVG string (CSP-safe: attributes only, no style="").
+ *   size  — the word's font size in px (default 28): the SVG is size × 3.3 wide and size × 1.56 tall.
+ *           CSS may resize it: set a height and keep width auto (`.wordmark` has the aspect-ratio).
+ *   tone  — 'light': white word for navy / dark backgrounds (the header) · 'dark': navy word for light surfaces ·
+ *           'auto': navy in the light theme, white in the dark theme, navy on paper. The coins are always gold.
+ *   label — accessible name; default t('app.name') → «أقساطي» / "Aqsati". Pass false when the parent already
+ *           names it (e.g. inside the header's home link): the SVG is then aria-hidden.
+ *   cls   — extra class names.
+ * Without JS imports: put <span data-logo="28" data-logo-tone="light"></span> in the page; initPage fills it.
+ */
+export function logoHTML({ size = 28, tone = 'light', label, cls = '' } = {}) {
+  const tn = LOGO_TONES[tone] ? tone : 'light';
+  const px = Math.max(8, Number(size) || 28);
+  const w = Math.round((LOGO_VB[0] / 100) * px * 10) / 10;
+  const h = Math.round((LOGO_VB[1] / 100) * px * 10) / 10;
+  const name = label === false ? '' : String(label ?? t('app.name'));
+  const a11y = name ? `role="img" aria-label="${esc(name)}"` : 'aria-hidden="true"';
+  // the coins' darker inner ring only shows from ~32px up; smaller it would just muddy the gold
+  const ring = px >= 32
+    ? LOGO_COINS.map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="${(LOGO_COIN_R * 0.6).toFixed(2)}" fill="none" stroke="#c98a1c" stroke-width="${(LOGO_COIN_R * 0.17).toFixed(2)}"/>`).join('')
+    : '';
+  const coins = LOGO_COINS.map(([cx, cy]) => `<circle class="wm-coin" cx="${cx}" cy="${cy}" r="${LOGO_COIN_R}" fill="#f5b942"/>`).join('');
+  return `<svg class="wordmark tone-${tn}${cls ? ` ${esc(cls)}` : ''}" viewBox="0 0 ${LOGO_VB[0]} ${LOGO_VB[1]}" width="${w}" height="${h}" ${a11y} focusable="false"><path class="wm-word" fill="${LOGO_TONES[tn]}" d="${LOGO_PATH}"/>${coins}${ring}</svg>`;
+}
+
+/** Fill every [data-logo] placeholder inside root (size = its value, tone = data-logo-tone, label off with data-logo-label="false"). */
+export function mountLogos(root = document) {
+  root.querySelectorAll('[data-logo]').forEach((el) => {
+    const label = el.getAttribute('data-logo-label');
+    el.innerHTML = logoHTML({
+      size: Number(el.getAttribute('data-logo')) || 28,
+      tone: el.getAttribute('data-logo-tone') || 'auto',
+      label: label === 'false' ? false : label || undefined,
+    });
+  });
+}
+
 // ---------- toast + banner ----------
 
 let toastTimer = 0;
@@ -734,10 +783,7 @@ function headerHTML() {
   const target = getLang() === 'ar' ? 'en' : 'ar';
   return `
     <div class="container header-in">
-      <a class="brand" href="/" aria-label="${esc(t('brand.home'))}">
-        <span class="logo" aria-hidden="true">ق</span>
-        <span class="brand-name">${esc(t('app.name'))}</span>
-      </a>
+      <a class="brand" href="/" aria-label="${esc(t('brand.home'))}">${logoHTML({ size: 28, tone: 'light', label: false })}</a>
       <nav class="nav" aria-label="${esc(t('nav.label'))}">${links}</nav>
       <div class="header-tools">
         <button type="button" class="hdr-btn lang-btn" data-focus-key="lang" data-action="lang" lang="${target}" aria-label="${esc(t('lang.label'))}" title="${esc(t('lang.label'))}">${esc(t('lang.short'))}</button>
@@ -819,6 +865,7 @@ function renderShell() {
   document.querySelectorAll('.skip-link').forEach((a) => {
     if (!a.hasAttribute('data-i18n') && !a.textContent.trim()) a.textContent = t('skip');
   });
+  mountLogos(document); // [data-logo] placeholders (their accessible name follows the language)
 }
 
 function setPopup(btn, pop, open) {
@@ -958,6 +1005,8 @@ export async function initPage({ active = '', requireAuth = false, title = '' } 
   page.active = active;
   page.requireAuth = requireAuth;
   page.title = title;
+  // lets CSS style per page (e.g. the landing's floating pill header: html[data-page="home"])
+  if (active) document.documentElement.dataset.page = active;
 
   applyTheme();
   applyLangToDocument();

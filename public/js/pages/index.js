@@ -1,6 +1,9 @@
 // أقساطي — landing page (/). Marketing + a live «أقدر أشتريه؟» demo (pure calc, nothing saved),
-// the 3D hero (lazy, SVG fallback), and small "try it" buttons for theme / language / install.
-// Uses only the core.js API. CSP-safe: no inline styles or handlers; dynamic text via textContent / esc().
+// the 3D hero (lazy, SVG fallback), a phone mockup of «لوحتي» (example numbers, or the visitor's own),
+// a pausable providers marquee, the 4-step "how it works" with a connector traced on scroll, the 40% band,
+// and small "try it" buttons for theme / language / install.
+// Uses only the core.js API. CSP-safe: no inline styles or handlers; dynamic text via textContent / esc();
+// runtime styles only through the CSSOM (style.setProperty).
 
 import {
   initPage, registerStrings, t, getLang, setLang, store, fmt, fx, esc,
@@ -26,23 +29,55 @@ registerStrings({
     'home.trust2': 'كلمة السر مشفرة',
     'home.trust3': 'بالدينار الكويتي',
     'home.trust4': 'عربي · English',
-    'home.scrollCue': 'انزل لـ «كيف يشتغل؟»',
+    'home.scrollCue': 'انزل وشوف لوحتك',
 
     'home.chipRatio': 'نسبتك من الراتب',
     'home.chipTotal': 'مجموع أقساطك بالشهر',
     'home.chipNext': 'القسط الجاي · {when}',
-    'home.chipEx': '32% · مريح',
+    'home.chipEx': '⁦24%⁩ · مريح',
+
+    'home.fb1p': 'تابي',
+    'home.fb1a': '45.500 د.ك',
+    'home.fb1s': 'قسط 2 من 4',
+    'home.fb2p': 'تمارا',
+    'home.fb2a': '62.250 د.ك',
+    'home.fb3p': 'قرض بنك',
+    'home.fb3a': '180.000 د.ك',
+
+    'home.peekKicker': 'لوحتي',
+    'home.peekTitle': 'شهرك كله بشاشة وحدة',
+    'home.peekDesc': 'أول ما تضيف أقساطك تتعبى لوحتك: نسبتك من الراتب، والتزامك الشهري، وكم يبقى لك، وأقرب المواعيد.',
+    'home.peek1t': 'نسبتك بحلقة وحدة',
+    'home.peek1d': 'لونها أخضر وأنت مرتاح، وتصفرّ إذا قربت من حدك الآمن، وتحمرّ إذا تعديته.',
+    'home.peek2t': 'التزامك وكم يبقى لك',
+    'home.peek2d': 'مجموع أقساطك بالشهر، والي يبقى من راتبك بعدها — يتحسب لحاله.',
+    'home.peek3t': 'الأقساط الجاية بالترتيب',
+    'home.peek3d': 'أقرب موعد فوق، وكم يوم باقي عليه، وكم قسط باقي لين تخلص.',
+    'home.peekCta': 'سوّ حسابك وشوف لوحتك',
+    'home.phKicker': 'لوحة {month}',
+    'home.phMonthly': 'التزامك الشهري',
+    'home.phFree': 'يبقى لك من الراتب',
+    'home.phUp': 'الأقساط الجاية',
+    'home.phAll': 'كل أقساطي',
+    'home.phFreeTitle': 'العد التنازلي للحرية',
+    'home.phFreeBy': 'بتخلص من كل أقساطك بـ',
+    'home.phCapEx': 'مثال توضيحي — لوحتك تتعبى بأرقامك أنت.',
+    'home.phCapYou': 'هذي أرقامك أنت من لوحتك ✓',
+    'home.pcLimit': 'حدك الآمن {limit}',
+    'home.pcPaid': 'علّمته «دفعت»',
+
+    'home.mqPause': 'أوقف الشريط المتحرك',
     'home.lvl.ok': 'مريح',
     'home.lvl.warn': 'قريب من حدك',
     'home.lvl.over': 'فوق حدك',
 
-    'home.provTitle': 'يجمع لك أقساطك من كل مكان',
+    'home.provTitle': 'يجمع أقساطك من:',
     'home.pv1': 'تابي',
     'home.pv2': 'تمارا',
     'home.pv3': 'ديما',
     'home.pv4': 'قروض البنوك',
     'home.pv5': 'البطاقات الائتمانية',
-    'home.pv6': 'أي قسط ثاني',
+    'home.pv6': 'أي جهة ثانية',
     'home.pvT': 'ت',
     'home.pvD': 'د',
     'home.pvB': 'ب',
@@ -53,19 +88,33 @@ registerStrings({
     'home.fact2': 'حد آمن افتراضي، وتقدر تغيّره',
     'home.fact3': 'ميزات بتطبيق واحد',
     'home.fact4': 'شهر من سجل التزامك محفوظ',
+    'home.fact5': 'لغتين: عربي و English',
 
     'home.howKicker': 'كيف يشتغل؟',
-    'home.howTitle': 'ثلاث خطوات، وتعرف وين واقف',
+    'home.howTitle': 'أربع خطوات، وتعرف وين واقف',
+    'home.step0Title': 'سجّل حسابك',
+    'home.step0Desc': 'إيميل وكلمة سر بس، وحسابك جاهز بثواني. كلمة السر تنحفظ مشفّرة، وما نطلب حسابك البنكي ولا بطاقتك.',
     'home.howDesc': 'بدون ربط حسابات، وبدون أرقام بطاقات. أنت تكتب، ونحن نحسب.',
     'home.step1Title': 'أضف أقساطك',
     'home.step1Desc': 'تابي، تمارا، ديما، قرض البنك، البطاقة… حط المبلغ الشهري ويوم الاستحقاق وكم قسط باقي. أو الصق رسالة البنك ونعبّيها لك.',
-    'home.step2Title': 'شوف نسبتك',
+    'home.step2Title': 'شوف نسبتك من الراتب',
     'home.step2Desc': 'كم تاخذ الأقساط من راتبك، وكم يبقى لك، والي باقي تدفعه هالشهر. وتنبيه إذا قربت من حدك الآمن.',
     'home.step3Title': 'افحص قبل لا تقسّط',
     'home.step3Desc': 'تحط السعر وعدد الأقساط، ونقولك نسبتك الجديدة، وإذا بتتعدى حدك نقترح أقل عدد أقساط يخليك مرتاح.',
     'home.ilOfSalary': 'من راتبك',
     'home.ilComfy': 'مريح ✓',
     'home.ilPrice': '360 د.ك',
+
+    'home.limKicker': 'الحد الآمن',
+    'home.limLine': 'الحد الآمن المقترح لأقساطك من الراتب — كم نسبتك أنت؟',
+    'home.limNote': 'هذا الحد الافتراضي بأقساطي، مو قانون ولا شرط من بنك. تقدر تغيّره من «حسابي» على راحتك، ونحذّرك إذا قربت منه.',
+    'home.limCta': 'احسب نسبتك الحين',
+    'home.limScale': 'نسبة أقساطك من الراتب',
+    'home.limMark': 'حدك ⁦40%⁩',
+    'home.limOk': 'مريح — أقل من ⁦30%⁩',
+    'home.limWarn': 'قريب من حدك — من ⁦30%⁩ إلى ⁦40%⁩',
+    'home.limOver': 'فوق حدك — أكثر من ⁦40%⁩',
+    'home.limFoot': '«قريب من حدك» يبدأ من ثلاث أرباع حدك، فلو غيّرت حدك تتغيّر الألوان معاه.',
 
     'home.demoKicker': 'جرّبها الحين',
     'home.demoTitle': 'أقدر أشتريه؟ اعرف بثواني',
@@ -135,7 +184,7 @@ registerStrings({
     'home.privTitle': 'فلوسك سرك، وبياناتك لك بس',
     'home.priv1': 'ما نطلب حسابك البنكي ولا بطاقتك — أنت تكتب الأرقام بنفسك.',
     'home.priv2': 'كلمة السر مشفرة (scrypt)، وما نقدر نشوفها حتى نحن.',
-    'home.priv3': 'بدون حساب؟ بياناتك مربوطة بمتصفحك بس، ومحد غيرك يشوفها.',
+    'home.priv3': 'بياناتك مربوطة بحسابك بس، ومحد غيرك يشوفها.',
     'home.priv4': 'صدّر بياناتك CSV، أو احذف حسابك وكل بياناته متى ما تبي.',
     'home.priv5': 'بدون إعلانات، وما نبيع بياناتك لأي أحد.',
     'home.privCta': 'إعدادات الخصوصية بحسابي',
@@ -153,6 +202,7 @@ registerStrings({
     'home.q5': 'هل أقساطي نصيحة مالية؟',
     'home.a5': 'لا. أقساطي أداة تنظيم وحساب تساعدك تشوف الصورة كاملة. القرار النهائي لك، ولو تحتاج استشارة كلّم مختص.',
 
+    'home.finalKicker': 'مجاني · عربي و English',
     'home.finalTitle': 'جاهز تعرف وين واقف؟',
     'home.finalDesc': 'دقيقتين وتضيف أقساطك، وتعرف نسبتك من راتبك على طول.',
     'home.finalSignup': 'سوّ حساب مجاني',
@@ -182,23 +232,55 @@ registerStrings({
     'home.trust2': 'Passwords are encrypted',
     'home.trust3': 'In Kuwaiti dinars',
     'home.trust4': 'العربية · English',
-    'home.scrollCue': 'Scroll to “How it works”',
+    'home.scrollCue': 'Scroll down to see the dashboard',
 
     'home.chipRatio': 'Share of your salary',
     'home.chipTotal': 'Your monthly total',
     'home.chipNext': 'Next payment · {when}',
-    'home.chipEx': '32% · Comfortable',
+    'home.chipEx': '24% · Comfortable',
+
+    'home.fb1p': 'Tabby',
+    'home.fb1a': 'KWD 45.500',
+    'home.fb1s': 'Payment 2 of 4',
+    'home.fb2p': 'Tamara',
+    'home.fb2a': 'KWD 62.250',
+    'home.fb3p': 'Bank loan',
+    'home.fb3a': 'KWD 180.000',
+
+    'home.peekKicker': 'Your dashboard',
+    'home.peekTitle': 'Your whole month on one screen',
+    'home.peekDesc': 'As soon as you add your installments, your dashboard fills in: your share of salary, your monthly commitment, what is left, and the next due dates.',
+    'home.peek1t': 'Your ratio in one ring',
+    'home.peek1d': 'Green while you are comfortable, amber as you near your safe limit, red once you go over it.',
+    'home.peek2t': 'Your commitment and what is left',
+    'home.peek2d': 'Your monthly installment total and what remains of your salary after it — calculated for you.',
+    'home.peek3t': 'Upcoming payments, in order',
+    'home.peek3d': 'The nearest due date first, how many days are left, and how many payments remain.',
+    'home.peekCta': 'Sign up and see your dashboard',
+    'home.phKicker': '{month} dashboard',
+    'home.phMonthly': 'Monthly commitment',
+    'home.phFree': 'Left from salary',
+    'home.phUp': 'Upcoming',
+    'home.phAll': 'All plans',
+    'home.phFreeTitle': 'Debt-free countdown',
+    'home.phFreeBy': 'Installment-free by',
+    'home.phCapEx': 'Illustrative example — your dashboard fills in with your own numbers.',
+    'home.phCapYou': 'These are your own numbers from your dashboard ✓',
+    'home.pcLimit': 'Safe limit {limit}',
+    'home.pcPaid': 'Marked “paid”',
+
+    'home.mqPause': 'Pause the moving strip',
     'home.lvl.ok': 'Comfortable',
     'home.lvl.warn': 'Near your limit',
     'home.lvl.over': 'Over your limit',
 
-    'home.provTitle': 'Brings your installments together from',
+    'home.provTitle': 'Brings your installments together from:',
     'home.pv1': 'Tabby',
     'home.pv2': 'Tamara',
     'home.pv3': 'Deema',
     'home.pv4': 'Bank loans',
     'home.pv5': 'Credit cards',
-    'home.pv6': 'Anything else',
+    'home.pv6': 'Any other lender',
     'home.pvT': 'T',
     'home.pvD': 'D',
     'home.pvB': 'B',
@@ -209,19 +291,33 @@ registerStrings({
     'home.fact2': 'default safe limit — yours to change',
     'home.fact3': 'features in one app',
     'home.fact4': 'months of payment history kept',
+    'home.fact5': 'languages: Arabic & English',
 
     'home.howKicker': 'How it works',
-    'home.howTitle': 'Three steps to know where you stand',
+    'home.howTitle': 'Four steps to know where you stand',
+    'home.step0Title': 'Create your account',
+    'home.step0Desc': 'Just an email and a password — ready in seconds. Your password is stored encrypted, and we never ask for your bank account or card.',
     'home.howDesc': 'No linked accounts, no card numbers. You type, we do the math.',
     'home.step1Title': 'Add your installments',
     'home.step1Desc': 'Tabby, Tamara, Deema, a bank loan, a card… enter the monthly amount, the due day and how many payments are left — or paste the bank SMS and we fill it in.',
-    'home.step2Title': 'See your ratio',
+    'home.step2Title': 'See your share of salary',
     'home.step2Desc': 'How much of your salary goes to installments, what is left, and what you still owe this month — with a heads-up when you near your safe limit.',
     'home.step3Title': 'Check before you buy',
     'home.step3Desc': 'Enter the price and the number of payments. We show your new ratio and, if it goes over, the fewest payments that keep you comfortable.',
     'home.ilOfSalary': 'of salary',
     'home.ilComfy': 'Comfy ✓',
     'home.ilPrice': 'KWD 360',
+
+    'home.limKicker': 'Safe limit',
+    'home.limLine': 'The suggested safe share of your salary for installments — what is yours?',
+    'home.limNote': 'This is Aqsati’s default limit — not a law or a bank rule. Change it any time in your account, and we warn you as you get close.',
+    'home.limCta': 'Work out your ratio now',
+    'home.limScale': 'Installments as a share of salary',
+    'home.limMark': 'Limit 40%',
+    'home.limOk': 'Comfortable — under 30%',
+    'home.limWarn': 'Near your limit — 30% to 40%',
+    'home.limOver': 'Over your limit — above 40%',
+    'home.limFoot': '“Near your limit” starts at three quarters of it, so if you change your limit the colours move with it.',
 
     'home.demoKicker': 'Try it now',
     'home.demoTitle': 'Can I afford it? Find out in seconds',
@@ -291,7 +387,7 @@ registerStrings({
     'home.privTitle': 'Your money is your business',
     'home.priv1': 'We never ask for your bank account or card — you type the numbers yourself.',
     'home.priv2': 'Passwords are hashed with scrypt; not even we can read them.',
-    'home.priv3': 'No account? Your data is tied to this browser only, and only you can see it.',
+    'home.priv3': 'Your data is tied to your account only — no one else can see it.',
     'home.priv4': 'Export your data to CSV, or delete your account and all its data whenever you like.',
     'home.priv5': 'No ads, and we never sell your data to anyone.',
     'home.privCta': 'Privacy settings in my account',
@@ -309,6 +405,7 @@ registerStrings({
     'home.q5': 'Is Aqsati financial advice?',
     'home.a5': 'No. Aqsati is an organising and calculation tool that shows you the full picture. The final decision is yours; for advice, talk to a professional.',
 
+    'home.finalKicker': 'Free · Arabic & English',
     'home.finalTitle': 'Ready to see where you stand?',
     'home.finalDesc': 'Add your installments in two minutes and see your salary ratio right away.',
     'home.finalSignup': 'Create a free account',
@@ -350,7 +447,16 @@ function renderCtas() {
   const login = $('#cta-login');
   const finalStart = $('#final-start');
   const finalSignup = $('#final-signup');
+  const peek = $('#peek-cta');
+  if (peek) {
+    peek.href = st.user ? '/app' : '/login?mode=signup&next=/app';
+    setKey(peek, st.user ? 'home.ctaDash' : 'home.peekCta');
+  }
   if (st.user) {
+    // Logged in: every «افتح لوحتي» goes straight to the dashboard (not via the sign-up page).
+    const start = $('#cta-start');
+    if (start) start.href = '/app';
+    if (finalStart) finalStart.href = '/app';
     setKey(startLabel, 'home.ctaDash');
     setKey(finalStart, 'home.ctaDash');
     if (login) { login.href = '/account'; setKey(login, 'home.ctaAccount'); }
@@ -396,6 +502,316 @@ function renderChips() {
     ico.className = `chip-ico ${level}`;
     ico.textContent = level === 'ok' ? '✓' : '!';
   }
+}
+
+// ---------- phone mockup: a mini «لوحتي» (the visitor's own numbers when there are some) ----------
+
+// The same example as the 3D cards: salary 1,200 · Tabby 45.500 + Tamara 62.250 + bank loan 180.000 a month.
+// The bank loan is on payment 14 of 48, so the example is installment-free 34 months after its next due date.
+const EXAMPLE = {
+  salary: 1200,
+  rows: [
+    { provider: 'تابي', monthly: 45.5, daysLeft: 1 },
+    { provider: 'تمارا', monthly: 62.25, daysLeft: 6 },
+    { provider: 'قرض بنك', monthly: 180, daysLeft: 12 },
+  ],
+  lastInDays: 12,
+  lastAfterMonths: 34,
+};
+
+/** 'YYYY-MM' of (today + days) moved on by `months`. */
+function monthAfter(days, months) {
+  const [y, m, d] = today().split('-').map(Number);
+  const at = new Date(Date.UTC(y, m - 1, d + days));
+  const shifted = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + months, 1));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** The dashboard's colour for a provider (same hash as /app, so the avatars match the real list). */
+function providerHue(name) {
+  let h = 0;
+  for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return h % 6;
+}
+
+const phone = { lastPct: 0 };
+
+function renderPhone() {
+  const st = store.state;
+  const s = summaryOf(st);
+  const mine = !!(s && s.active.length);
+  const limit = mine ? safeLimitOf(st) : C.DEFAULT_SAFE_LIMIT;
+  let monthly;
+  let ratio;
+  let free;
+  let rows;
+  let lastMonth;
+  if (mine) {
+    monthly = s.monthlyTotal;
+    ratio = s.ratio;
+    free = s.freeAfter;
+    rows = s.active.slice(0, 3).map((i) => ({ provider: i.provider, monthly: i.monthly, daysLeft: i.daysLeft }));
+    lastMonth = s.active.reduce((max, i) => (i.lastDue && i.lastDue > max ? i.lastDue : max), '').slice(0, 7);
+  } else {
+    monthly = C.round3(EXAMPLE.rows.reduce((sum, r) => sum + r.monthly, 0));
+    ratio = (monthly / EXAMPLE.salary) * 100;
+    free = C.round3(EXAMPLE.salary - monthly);
+    rows = EXAMPLE.rows;
+    lastMonth = monthAfter(EXAMPLE.lastInDays, EXAMPLE.lastAfterMonths);
+  }
+  const level = C.levelFor(ratio, limit);
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+
+  set('ph-kicker', t('home.phKicker', { month: fmt.month(today()) }));
+  set('ph-monthly', fmt.money(monthly));
+  set('ph-free', free === null ? '—' : fmt.money(free));
+  set('pc-limit', t('home.pcLimit', { limit: fmt.pct(limit) }));
+  set('ph-free-month', lastMonth ? fmt.month(lastMonth) : '—');
+
+  const pctEl = $('#ph-pct');
+  if (pctEl) {
+    pctEl.className = `lvl-${level}`;
+    pctEl.textContent = ratio === null ? '—' : fmt.pct(ratio);
+  }
+  const ring = $('#ph-ring');
+  if (ring) {
+    ring.setAttribute('class', `ph-fill lvl-${level}`);
+    const pct = ratio === null ? 0 : Math.min(100, Math.max(0, ratio));
+    fx.setRing(ring, pct, phone.lastPct);
+    phone.lastPct = pct;
+  }
+  $('#ph-tick')?.setAttribute('transform', `rotate(${(Math.min(100, limit) * 3.6).toFixed(1)} 60 60)`);
+
+  const lvl = $('#ph-level');
+  if (lvl) {
+    lvl.hidden = level === 'none';
+    lvl.className = `ph-level lvl-${level}`;
+    set('ph-level-text', level === 'none' ? '' : t(`home.lvl.${level}`));
+  }
+
+  const list = $('#ph-list');
+  if (list) {
+    list.innerHTML = rows.map((r) => {
+      const name = fmt.provider(r.provider);
+      return `<li><span class="pv pv-${providerHue(r.provider)}">${esc([...name.trim()][0] || '؟')}</span>`
+        + `<span class="ph-li-main"><b dir="auto">${esc(name)}</b><small>${esc(fmt.daysLeft(r.daysLeft))}</small></span>`
+        + `<span class="ph-li-amt">${esc(fmt.money(r.monthly))}</span></li>`;
+    }).join('');
+  }
+  setKey($('#phone-cap'), mine ? 'home.phCapYou' : 'home.phCapEx');
+}
+
+/** The phone drifts a little against the scroll (desktop and phones; never with reduced motion). */
+function startPhoneParallax() {
+  const par = $('#phone-par');
+  const fig = $('#phone-fig');
+  if (!par || !fig || fx.reducedMotion() || !('IntersectionObserver' in window)) return;
+  let inView = false;
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    if (fx.reducedMotion()) { par.style.setProperty('--py', '0px'); return; }
+    const r = fig.getBoundingClientRect();
+    const vh = window.innerHeight || 1;
+    const c = Math.max(-1, Math.min(1, (r.top + r.height / 2 - vh / 2) / vh));
+    // Only drift up (away from the «مثال توضيحي» caption under the phone), never down over it.
+    par.style.setProperty('--py', `${Math.min(0, c * -40).toFixed(1)}px`);
+  };
+  const onScroll = () => {
+    if (!inView || ticking) return;
+    ticking = true;
+    requestAnimationFrame(update);
+  };
+  new IntersectionObserver((entries) => {
+    inView = entries.some((e) => e.isIntersecting);
+    if (inView) onScroll();
+  }, { rootMargin: '120px 0px' }).observe(fig);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  fx.onMotionChange((reduce) => { if (reduce) par.style.setProperty('--py', '0px'); });
+}
+
+// ---------- providers marquee: endless, pauses on hover / focus / button, still with reduced motion ----------
+
+function startMarquee() {
+  const box = $('#marquee');
+  const track = $('#mq-track');
+  const group = $('#mq-group');
+  const btn = $('#mq-toggle');
+  if (!box || !track || !group) return;
+  let lastWidth = 0;
+
+  const build = () => {
+    track.querySelectorAll('.mq-clone').forEach((n) => n.remove());
+    if (fx.reducedMotion()) {
+      box.classList.remove('is-moving');
+      if (btn) btn.hidden = true;
+      return;
+    }
+    box.classList.add('is-moving'); // one row, no wrapping → measurable
+    const gw = group.getBoundingClientRect().width;
+    lastWidth = box.clientWidth;
+    if (!gw) return;
+    // half of the track must be at least as wide as the strip, so the loop never shows a gap
+    const copies = Math.max(1, Math.ceil(box.clientWidth / gw));
+    for (let i = 1; i < copies * 2; i += 1) {
+      const c = group.cloneNode(true);
+      c.removeAttribute('id');
+      c.classList.add('mq-clone');
+      c.setAttribute('aria-hidden', 'true');
+      track.append(c);
+    }
+    track.style.setProperty('--mq-dur', `${Math.max(14, (gw * copies) / 36).toFixed(1)}s`);
+    if (btn) btn.hidden = false;
+  };
+
+  btn?.addEventListener('click', () => {
+    const paused = btn.getAttribute('aria-pressed') !== 'true';
+    btn.setAttribute('aria-pressed', String(paused));
+    box.classList.toggle('is-paused', paused);
+  });
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      box.classList.toggle('is-off', !entries.some((e) => e.isIntersecting));
+    }).observe(box);
+  }
+  if ('ResizeObserver' in window) {
+    let frame = 0;
+    new ResizeObserver(() => {
+      if (Math.abs(box.clientWidth - lastWidth) < 2) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(build);
+    }).observe(box);
+  }
+  fx.onMotionChange(build);
+  window.addEventListener('langchange', () => requestAnimationFrame(build));
+  document.fonts?.ready?.then(() => requestAnimationFrame(build)).catch(() => {});
+  build();
+}
+
+// ---------- «كيف يشتغل؟»: a curved line through the step numbers, traced as the section scrolls by ----------
+
+/** Offset of el inside ancestor, ignoring transforms (so reveal / tilt animations never skew the path). */
+function offsetIn(el, ancestor) {
+  let x = 0;
+  let y = 0;
+  let node = el;
+  while (node && node !== ancestor) {
+    x += node.offsetLeft;
+    y += node.offsetTop;
+    const parent = node.offsetParent;
+    if (!parent || !ancestor.contains(parent) && parent !== ancestor) break;
+    node = parent;
+  }
+  return { x: x + el.offsetWidth / 2, y: y + el.offsetHeight / 2 };
+}
+
+function startSteps() {
+  const wrap = $('#steps-wrap');
+  const svg = $('#steps-line');
+  const base = $('#sl-base');
+  const draw = $('#sl-draw');
+  const nodes = $$('#steps-wrap .step-node');
+  if (!wrap || !svg || !base || !draw || nodes.length < 2) return;
+  let len = 0;
+  let fracs = [];
+  let inView = false;
+  let ticking = false;
+
+  const paint = () => {
+    ticking = false;
+    let p = 1;
+    if (!fx.reducedMotion()) {
+      const vh = window.innerHeight || 1;
+      const r = wrap.getBoundingClientRect();
+      p = Math.max(0, Math.min(1, (vh * 0.82 - r.top) / (r.height + vh * 0.25)));
+    }
+    draw.style.strokeDashoffset = (len * (1 - p)).toFixed(1);
+    nodes.forEach((n, i) => n.classList.toggle('is-lit', p > 0 && p >= fracs[i] - 0.002));
+  };
+
+  const layout = () => {
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    if (!w || !h) return;
+    const pts = nodes.map((n) => offsetIn(n, wrap));
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.setAttribute('width', String(w));
+    svg.setAttribute('height', String(h));
+    const across = Math.abs(pts[1].x - pts[0].x) > Math.abs(pts[1].y - pts[0].y);
+    const f = (v) => v.toFixed(1);
+    let d = `M${f(pts[0].x)} ${f(pts[0].y)}`;
+    const partials = [];
+    for (let i = 1; i < pts.length; i += 1) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      const side = i % 2 ? 1 : -1;
+      if (across) {
+        const dx = b.x - a.x;
+        const lift = 30 * side;
+        d += ` C${f(a.x + dx * 0.42)} ${f(a.y - lift)} ${f(b.x - dx * 0.42)} ${f(b.y - lift)} ${f(b.x)} ${f(b.y)}`;
+      } else {
+        const dy = b.y - a.y;
+        const bend = 14 * side;
+        d += ` C${f(a.x + bend)} ${f(a.y + dy * 0.4)} ${f(b.x + bend)} ${f(b.y - dy * 0.4)} ${f(b.x)} ${f(b.y)}`;
+      }
+      partials.push(d);
+    }
+    const lengths = [0];
+    for (const part of partials) {
+      base.setAttribute('d', part);
+      lengths.push(base.getTotalLength());
+    }
+    len = lengths[lengths.length - 1] || 1;
+    fracs = lengths.map((l) => l / len);
+    base.setAttribute('d', d);
+    draw.setAttribute('d', d);
+    draw.style.strokeDasharray = `${len.toFixed(1)} ${len.toFixed(1)}`;
+    wrap.classList.add('has-line');
+    paint();
+  };
+
+  const onScroll = () => {
+    if (!inView || ticking) return;
+    ticking = true;
+    requestAnimationFrame(paint);
+  };
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      inView = entries.some((e) => e.isIntersecting);
+      if (inView) onScroll();
+    }, { rootMargin: '200px 0px' }).observe(wrap);
+  } else {
+    inView = true;
+  }
+  if ('ResizeObserver' in window) {
+    let frame = 0;
+    new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(layout);
+    }).observe(wrap);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('langchange', () => requestAnimationFrame(layout));
+  fx.onMotionChange(paint);
+  document.fonts?.ready?.then(() => requestAnimationFrame(layout)).catch(() => {});
+  try {
+    layout();
+  } catch {
+    // no SVG geometry API: the steps simply show without the line
+  }
+}
+
+// ---------- the 40% band: the number counts up once it is on screen ----------
+
+function startLimitBand() {
+  const big = $('#limit-big');
+  if (!big || fx.reducedMotion() || !('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver((entries) => {
+    if (!entries.some((e) => e.isIntersecting)) return;
+    io.disconnect();
+    fx.countUp(big, 0, C.DEFAULT_SAFE_LIMIT, (v) => `${Math.round(v)}%`, 1300);
+  }, { threshold: 0.6 });
+  io.observe(big);
 }
 
 // ---------- 3D hero (lazy; the SVG under the canvas stays when WebGL / the CDN isn't there) ----------
@@ -671,9 +1087,19 @@ function bindTryButtons() {
 
 // ---------- boot ----------
 
+/** Run a render step without letting one failure take the rest of the page down with it. */
+function safely(fn) {
+  try {
+    fn();
+  } catch (err) {
+    console.warn('home:', err?.message || err);
+  }
+}
+
 function renderAll() {
   renderCtas();
   renderChips();
+  safely(renderPhone);
   prefillDemo();
   renderDemo();
 }
@@ -687,6 +1113,7 @@ renderInstall();
 store.subscribe(() => renderAll());
 window.addEventListener('langchange', () => {
   renderChips();
+  safely(renderPhone);
   renderDemo();
   renderThemeTry();
   renderLangTry();
@@ -696,4 +1123,8 @@ window.addEventListener('langchange', () => {
 renderAll();
 startScene();
 startFacts();
+safely(startMarquee);
+safely(startSteps);
+safely(startPhoneParallax);
+safely(startLimitBand);
 initPage({ active: 'home', title: 'home.title' }).catch((err) => console.error(err));

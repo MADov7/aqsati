@@ -10,7 +10,7 @@
 // Bump VERSION on every deploy that changes the shell; old caches are deleted on activate.
 // On localhost even icons and images are network first, so editing files never shows a stale copy.
 
-const VERSION = 'aqsati-v3-2026-11-16';
+const VERSION = 'aqsati-v6-2026-11-16-coins';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -35,6 +35,7 @@ const ASSETS = [
   '/js/logic/tour.js',
   '/manifest.webmanifest',
   '/icons/icon.svg',
+  '/icons/icon-maskable.svg',
   '/icons/favicon.svg',
   '/icons/favicon-32.png',
   '/icons/icon-192.png',
@@ -139,7 +140,7 @@ function offlinePage() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>أقساطي · بدون إنترنت</title><link rel="stylesheet" href="/css/base.css"></head>
 <body><main id="main" class="container page"><div class="empty">
-<span class="logo lg" aria-hidden="true">ق</span>
+<img class="offline-logo" src="/icons/icon.svg" width="72" height="72" alt="أقساطي">
 <h1 class="empty-title">أنت بدون إنترنت</h1>
 <p class="empty-desc">هالصفحة ما انحفظت قبل. أول ما يرجع الإنترنت حدّث الصفحة.</p>
 <p class="empty-desc" lang="en" dir="ltr">You're offline and this page wasn't saved yet. Reload once you're back online.</p>

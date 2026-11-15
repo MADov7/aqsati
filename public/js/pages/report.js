@@ -2,7 +2,7 @@
 // month's dues with paid status, a small chart, tips, generated date). «حمّل PDF» = window.print() with the
 // A4 print stylesheet; «تصدير CSV» = a UTF-8 (BOM) CSV that opens cleanly in Excel / Numbers / Sheets.
 
-import { initPage, store, t, registerStrings, getLang, isRTL, fmt, esc, ICONS, toast, showBanner, errorText } from '../core.js';
+import { initPage, store, t, registerStrings, getLang, isRTL, fmt, esc, ICONS, toast, showBanner, errorText, logoHTML } from '../core.js';
 import * as C from '../../calc.js';
 import { monthEvents, monthTotals, timeline, reportMonths, reportTips, toCSV, providerColor, roundPercents } from '../logic/schedule.js';
 import { columnChart, splitBar, bindTips, onWidth } from '../logic/charts.js';
@@ -273,8 +273,8 @@ function sheetHTML(r) {
     <article class="sheet" aria-labelledby="sheet-title">
       <header class="sheet-head">
         <div class="sheet-brand">
-          <span class="logo" aria-hidden="true">ق</span>
-          <div><b>${esc(t('app.name'))}</b><small>${esc(t('app.tagline'))}</small></div>
+          ${logoHTML({ size: 32, tone: 'auto' })}
+          <small>${esc(t('app.tagline'))}</small>
         </div>
         <div class="sheet-meta">
           <h2 id="sheet-title">${esc(t('rep.sheetTitle', { month: fmt.month(r.key) }))}</h2>

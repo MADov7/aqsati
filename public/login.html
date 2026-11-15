@@ -9,9 +9,9 @@
   <meta name="theme-color" content="#0f2a4a">
   <meta name="robots" content="noindex">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" href="/icons/favicon-32.png?v=2" sizes="32x32" type="image/png">
+  <link rel="icon" href="/icons/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2" sizes="180x180">
   <script src="/js/boot.js"></script>
   <link rel="modulepreload" href="/js/core.js">
   <link rel="modulepreload" href="/js/i18n.js">
@@ -140,6 +140,7 @@
       </section>
 
       <aside class="auth-side" aria-labelledby="side-title">
+        <span class="side-brand" data-logo="30" data-logo-tone="light"></span>
         <div class="side-art" aria-hidden="true">
           <svg viewBox="0 0 260 200" focusable="false">
             <defs>
@@ -187,11 +188,10 @@
         <h2 id="side-title" data-i18n="login.sideTitle">حسابك يحفظ أقساطك</h2>
         <ul class="side-list">
           <li data-i18n="login.side1">افتح أقساطك من أي جهاز — الجوال واللابتوب</li>
-          <li data-i18n="login.side2">الي سجلته كضيف ينتقل لحسابك تلقائياً</li>
+          <li data-i18n="login.side2">بدون إعلانات، وما نبيع بياناتك</li>
           <li data-i18n="login.side3">كلمة السر مشفرة، وما نطلب أي بيانات بنكية</li>
           <li data-i18n="login.side4">تقدر تصدّر بياناتك أو تحذف حسابك متى ما تبي</li>
         </ul>
-        <p class="side-guest"><span data-i18n="login.sideGuest">تبي تجرب أول؟</span> <a href="/app" data-i18n="login.sideGuestLink">كمّل بدون حساب</a></p>
       </aside>
     </div>
   </main>

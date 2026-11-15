@@ -126,6 +126,9 @@ html[dir='ltr'] .pw-wrap input[type='text'] { direction: ltr; text-align: left; 
   box-shadow: var(--shadow-lg);
   --focus: var(--gold);
 }
+/* the wordmark (filled by core.js from data-logo); its box is reserved so nothing jumps when it appears */
+.side-brand { display: flex; height: 47px; margin-bottom: var(--s-3); }
+.side-brand .wordmark { height: 47px; }
 .side-art { display: grid; place-items: center; margin-bottom: var(--s-3); }
 .side-art svg { width: min(260px, 100%); height: auto; }
 .auth-side h2 { color: #fff; font-size: 1.35rem; margin-bottom: var(--s-4); }
