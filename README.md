@@ -25,7 +25,7 @@ MVP لمشروع FinTech (CODED · UniCODE · Web with AI — اليوم الس�
 - **الواجهة:** صفحة وحدة HTML + CSS + JavaScript بدون أي مكتبة (`public/`).
 - **السيرفر:** Node بدون إطار عمل. نقطة وحدة `POST /api/rpc` (`lib/rpc.js`) تتكلم مع **MongoDB Atlas** (`lib/store.js`).
   - على **Vercel**: `api/rpc.js` (Serverless Function).
-  - على **Replit** وعلى جهازك: `server.mjs` (نفس الكود).
+  - على جهازك: `server.mjs` (نفس الكود).
 - **البيانات بـ MongoDB:** مجموعتين `profiles` و `installments`، وكل شي مربوط بـ token عشوائي خاص بالمتصفح. ولا مفتاح يوصل للمتصفح.
 - النسخة الأولى (اليوم السادس) كانت على Supabase: `supabase/schema-day6-supabase.sql`.
 
@@ -33,11 +33,10 @@ MVP لمشروع FinTech (CODED · UniCODE · Web with AI — اليوم الس�
 
 | المكان | وين تحط `MONGODB_URI` |
 |---|---|
-| Replit | Tools → Secrets |
 | Vercel | Settings → Environment Variables |
 | جهازك | ملف `.env.local` (انسخ `.env.example`) |
 
-وبـ MongoDB Atlas → Network Access لازم يكون مسموح `0.0.0.0/0`، لأن Vercel و Replit عناوينهم تتغير.
+وبـ MongoDB Atlas → Network Access لازم يكون مسموح `0.0.0.0/0`، لأن عناوين سيرفرات Vercel تتغير.
 
 ## التشغيل
 

@@ -1,5 +1,5 @@
-// أقساطي server for Replit and local runs: serves public/ and POST /api/rpc (same handler Vercel uses).
-// Reads MONGODB_URI from the environment (Replit Secrets) or from .env.local when present.
+// أقساطي local server: serves public/ and POST /api/rpc (the same handler Vercel runs as api/rpc.js).
+// Reads MONGODB_URI from the environment or from .env.local when present.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
@@ -29,10 +29,10 @@ const TYPES = {
   '.ico': 'image/x-icon',
 };
 
-// No X-Frame-Options here: Replit shows the app inside an iframe (Webview/Preview).
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
 };
 
 const server = http.createServer(async (req, res) => {
