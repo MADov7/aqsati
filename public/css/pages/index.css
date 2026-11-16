@@ -613,6 +613,12 @@ html:lang(en) .peek-copy h2 { letter-spacing: -0.015em; }
     linear-gradient(160deg, #030a15 0%, #081a2f 55%, #030a14 100%);
   border-block: 1px solid rgba(245, 185, 66, 0.16);
 }
+/* dark mode: the same thin gold line splits the navy hero from the (also dark) section under it */
+:root[data-theme='dark'] .hero { border-bottom: 1px solid rgba(245, 185, 66, 0.16); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .hero { border-bottom: 1px solid rgba(245, 185, 66, 0.16); }
+  :root:not([data-theme]) .limit-band { border-block: 1px solid rgba(245, 185, 66, 0.16); }
+}
 .limit-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .lb-glow {
   position: absolute;
