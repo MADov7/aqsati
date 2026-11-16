@@ -11,7 +11,7 @@ import { passwordStrength, MIN_LENGTH, MAX_LENGTH } from '../logic/password-stre
 import { toCSV, installmentRows, exportFilename } from '../logic/export-csv.js';
 import {
   getNotifySettings, notifySupport, enableNotify, disableNotify, setNotifyMode, sendTestNotification, checkDues,
-  ensureBackgroundSync, refreshMirror, nextReminder,
+  ensureBackgroundSync, nextReminder, activeFor,
 } from '../logic/notify.js';
 
 registerStrings({
@@ -722,7 +722,8 @@ function notifyBox(tone, icon, lines) {
 function nextReminderLine(mode) {
   if (!store.loaded) return '';
   const today = C.todayISO();
-  const next = nextReminder(store.state, today, mode);
+  // reminders already shown (by this page or the background worker) are not promised again
+  const next = nextReminder(store.state, today, mode, 62, getNotifySettings().shown);
   if (!next) return t('ntf.nextNone');
   const days = C.daysBetween(today, next.date);
   const when = days <= 1 ? fmt.daysLeft(days) : t('ntf.whenOn', { day: fmt.day(next.date) });
@@ -739,7 +740,8 @@ function renderNotify() {
   if (!sw) return;
   const s = getNotifySettings();
   const perm = notifySupport();
-  const on = s.on && perm === 'granted';
+  // switched on by THIS account (another account on the same browser sees it off)
+  const on = activeFor(s, store.state) && perm === 'granted';
   sw.checked = ntf.busy ? ntf.want : on;
   sw.disabled = ntf.busy || perm === 'unsupported';
   $$('input[name="notifyWhen"]').forEach((r) => {
@@ -774,11 +776,12 @@ async function toggleNotify() {
   try {
     if (ntf.want) {
       const mode = $('input[name="notifyWhen"]:checked')?.value;
-      const r = await enableNotify(mode);
+      const r = await enableNotify(mode, store.state.user?.email);
       if (r.ok) {
         ntf.background = r.background;
         toast(t('ntf.enabled'), 'ok');
-        checkDues(store.state).catch(() => {}); // something due tomorrow? it shows right away
+        // something due tomorrow? it shows right away — then the «next reminder» line moves past it
+        checkDues(store.state).then(renderNotify).catch(() => {});
       } else {
         ntf.reason = r.reason;
       }
@@ -802,13 +805,12 @@ function bindNotify() {
     await setNotifyMode(r.value);
     renderNotify();
     toast(t(r.value === 'day' ? 'ntf.onDay' : 'ntf.onBefore'), 'ok');
-    checkDues(store.state).catch(() => {});
+    checkDues(store.state).then(renderNotify).catch(() => {});
   }));
   $('#notify-test')?.addEventListener('click', async () => {
     const ok = await sendTestNotification();
     toast(t(ok ? 'ntf.testSent' : 'ntf.testFail'), ok ? 'ok' : 'error');
   });
-  window.addEventListener('langchange', () => { refreshMirror(); });
   // permission changed in the browser's site settings while this page is open
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') renderNotify(); });
   if (getNotifySettings().on && notifySupport() === 'granted') {

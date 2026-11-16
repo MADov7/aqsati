@@ -1075,6 +1075,13 @@ export async function initPage({ active = '', requireAuth = false, title = '' } 
   window.addEventListener('langchange', () => {
     renderShell();
     setTitle();
+    // background reminders follow the header language toggle on every page (the worker reads the mirror's lang);
+    // the module is only loaded when reminders are switched on
+    try {
+      if (JSON.parse(localStorage.getItem('aqsati_notify') || 'null')?.on === true) {
+        import('./logic/notify.js').then((m) => m.refreshMirror()).catch(() => {});
+      }
+    } catch { /* storage blocked or junk: nothing to refresh */ }
   });
 
   FX.ripples();

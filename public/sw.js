@@ -10,7 +10,7 @@
 // Bump VERSION on every deploy that changes the shell; old caches are deleted on activate.
 // On localhost even icons and images are network first, so editing files never shows a stale copy.
 
-const VERSION = 'aqsati-v15-2026-11-16-one-name';
+const VERSION = 'aqsati-v16-2026-11-16-notify-fixes';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -276,17 +276,24 @@ function ntfPaymentOn(inst, date) {
   return ntfNthDue(inst, k) === date ? k : -1;
 }
 
+function ntfOwnerKey(email) {
+  return typeof email === 'string' ? email.trim().toLowerCase().slice(0, 254) : '';
+}
+
 function ntfNormalize(raw) {
   let v = raw;
   if (typeof v === 'string') {
     try { v = JSON.parse(v); } catch { v = null; }
   }
   const o = v && typeof v === 'object' ? v : {};
-  return {
+  const out = {
     on: o.on === true,
     mode: NTF_MODES.includes(o.mode) ? o.mode : 'before',
     shown: Array.isArray(o.shown) ? o.shown.filter((k) => typeof k === 'string' && NTF_SHOWN_RE.test(k)).slice(-200) : [],
   };
+  const owner = ntfOwnerKey(o.owner);
+  if (owner) out.owner = owner;
+  return out;
 }
 
 function ntfDues(state, today, mode) {
@@ -351,8 +358,11 @@ function ntfNotification(due, lang) {
 function ntfPending(state, today, settings, lang) {
   const s = ntfNormalize(settings);
   if (!s.on) return [];
+  if (s.owner && ntfOwnerKey(state?.user?.email) !== s.owner) return [];
   const shown = new Set(s.shown);
-  return ntfDues(state, today, s.mode).filter((d) => !shown.has(d.key)).map((d) => ({ key: d.key, ...ntfNotification(d, lang) }));
+  // «قبل بيوم» also catches up a reminder missed the day before, on the due day itself (same key ⇒ never twice)
+  const dues = s.mode === 'day' ? ntfDues(state, today, 'day') : [...ntfDues(state, today, 'day'), ...ntfDues(state, today, 'before')];
+  return dues.filter((d) => !shown.has(d.key)).map((d) => ({ key: d.key, ...ntfNotification(d, lang) }));
 }
 
 function ntfRemember(shown, keys, today) {
@@ -366,7 +376,8 @@ async function ntfCheckDues() {
   const saved = await cache.match(NTF_URL);
   const raw = saved ? await saved.json().catch(() => null) : null;
   const settings = ntfNormalize(raw);
-  if (!settings.on) return;
+  // switched on by one account (owner = its email); saved without an owner ⇒ off
+  if (!settings.on || !settings.owner) return;
   if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') return;
   const res = await fetch('/api/rpc', {
     method: 'POST',
@@ -377,7 +388,8 @@ async function ntfCheckDues() {
   });
   if (!res.ok) return;
   const state = await res.json().catch(() => null);
-  if (!state?.user) return; // signed out: nothing to remind
+  // signed out, or another account signed in on this browser: nothing to remind
+  if (!state?.user || ntfOwnerKey(state.user.email) !== settings.owner) return;
   const today = ntfToday();
   const lang = raw?.lang === 'en' ? 'en' : 'ar';
   const shown = [];

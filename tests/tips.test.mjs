@@ -128,7 +128,7 @@ test('tips: over the limit with only open-ended installments → overOpen (no en
   assert.match(mixed[0].body, /ديما/);
 });
 
-test('tips: «closest» and «biggest» ignore open-ended installments; an openEnded info tip is added', () => {
+test('tips: «closest» ignores open-ended installments, «biggest» never names a smaller plan; an openEnded info tip is added', () => {
   const tips = buildTips({ installments: [OPEN, SHORT], payments: [], profile: profile(3000, 1), today: TODAY }, { max: 10 });
   const closest = tips.find((t) => t.id === 'closest');
   assert.ok(closest);
@@ -139,11 +139,21 @@ test('tips: «closest» and «biggest» ignore open-ended installments; an openE
   assert.match(open.body, /40\.000 د\.ك/);
   assert.match(open.body, /عليه/);
   assert.equal(open.action.href, '/installments');
-  // biggest is the finite one even though the open-ended one is bigger; share is still over the whole monthly total
-  const big = buildTips({ installments: [OPEN, { ...B, monthly_amount: 30 }], payments: [], profile: profile(5000, 1), today: TODAY }, { max: 10 }).find((t) => t.id === 'biggest');
+  // «biggest» compares ALL active plans: when the open-ended one is the biggest, no tip (it would name a smaller plan
+  // as «أكبر حمل عليك», which is false); a bigger finite plan is named with its share of the whole monthly total;
+  // a tie prefers the finite plan (so the result never depends on array order)
+  const bigOf = (list) => buildTips({ installments: list, payments: [], profile: profile(5000, 1), today: TODAY }, { max: 10 }).find((t) => t.id === 'biggest');
+  assert.equal(bigOf([OPEN, { ...B, monthly_amount: 30 }]), undefined);
+  const big = bigOf([OPEN, { ...B, monthly_amount: 50 }]);
   assert.ok(big);
   assert.match(big.body, /قرض بنك/);
-  assert.match(big.body, /42\.9%/); // 30 / 70
+  assert.match(big.body, /55\.6%/); // 50 / 90
+  for (const list of [[OPEN, { ...B, monthly_amount: 40 }], [{ ...B, monthly_amount: 40 }, OPEN]]) {
+    const tie = bigOf(list);
+    assert.ok(tie);
+    assert.match(tie.body, /قرض بنك/);
+    assert.match(tie.body, /50%/); // 40 / 80
+  }
   const two = buildTips({ installments: [OPEN, { ...OPEN, id: 'o2' }], payments: [], profile: profile(3000, 1), today: TODAY }, { max: 10 });
   assert.match(two.find((t) => t.id === 'openEnded').body, /قسطين/);
   assert.match(two.find((t) => t.id === 'openEnded').body, /عليها/);

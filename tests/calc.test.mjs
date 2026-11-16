@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   parseAmount, parseWhole, firstDueDate, nthDueDate, installmentStatus, monthSummary,
   affordability, levelFor, validateInstallmentInput, validateProfileInput, validateCheckInput,
-  fmtKWD, fmtDaysLeft, fmtCount, daysBetween,
+  fmtKWD, fmtDaysLeft, fmtCount, openAdjAr, daysBetween,
 } from '../public/calc.js';
 
 test('parseAmount understands Arabic digits, separators and junk', () => {
@@ -158,6 +158,21 @@ test('formatting helpers', () => {
   assert.equal(fmtCount(4), '4 أقساط');
   assert.equal(fmtCount(24), '24 قسط');
   assert.equal(daysBetween('2026-12-31', '2027-01-01'), 1);
+});
+
+test('openAdjAr: «مفتوح» agrees with fmtCount (same number bands), with and without «يتكرر»', () => {
+  const cases = [
+    [1, 'قسط واحد مفتوح', 'قسط واحد مفتوح يتكرر'],
+    [2, 'قسطين مفتوحين', 'قسطين مفتوحين يتكررون'],
+    [3, '3 أقساط مفتوحة', '3 أقساط مفتوحة تتكرر'],
+    [10, '10 أقساط مفتوحة', '10 أقساط مفتوحة تتكرر'],
+    [11, '11 قسط مفتوح', '11 قسط مفتوح يتكرر'],
+    [50, '50 قسط مفتوح', '50 قسط مفتوح يتكرر'],
+  ];
+  for (const [n, plain, verb] of cases) {
+    assert.equal(`${fmtCount(n)} ${openAdjAr(n)}`, plain, `n=${n}`);
+    assert.equal(`${fmtCount(n)} ${openAdjAr(n, true)}`, verb, `n=${n} (verb)`);
+  }
 });
 
 // ---------- additive helpers (multi-page app: calendar, insights, report, EN mode) ----------

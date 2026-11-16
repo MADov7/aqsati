@@ -4,15 +4,20 @@
 //   duesToNotify(state, today, mode)          → payments that fall on the reminder's target day and are not marked paid
 //                                              mode 'before' (default) = due tomorrow · 'day' = due today
 //   notificationFor(due, lang)                → { title, options } for registration.showNotification (AR / EN)
-//   pendingNotifications(state, today, settings, lang) → the ones not shown yet (dedupe key '<id>|<YYYY-MM-DD>')
+//   pendingNotifications(state, today, settings, lang) → the ones not shown yet (dedupe key '<id>|<YYYY-MM-DD>');
+//                                              «قبل بيوم» also catches up a reminder missed the day before, on the due day
 //   rememberShown(shown, keys, today)         → the dedupe list with the new keys, old dates dropped
-//   nextReminder(state, today, mode)          → the next day a reminder would go out: { date, dues } | null
+//   nextReminder(state, today, mode, days, shown) → the next day a reminder would go out (skipping ones already shown)
+//   activeFor(settings, state)                → on, and switched on by THIS signed-in account (owner = its email)
 //
 // Browser part (safe to import anywhere: nothing runs until a function is called):
-//   remindDues(store)    → once per page load, when signed in and switched on: shows what is due (app + installments pages)
-//   enableNotify(mode) / disableNotify() / setNotifyMode(mode) / sendTestNotification() → the «التنبيهات» card in /account
+//   remindDues(store)    → app + installments pages: shows what is due when STATE loads / changes and whenever the page
+//                          comes back to the front (a tab or installed app resumed on a later day)
+//   enableNotify(mode, owner) / disableNotify() / setNotifyMode(mode) / sendTestNotification() → «التنبيهات» in /account
 //
-// Settings live in localStorage 'aqsati_notify' = { on, mode: 'before' | 'day', shown: ['<id>|<date>', …] }.
+// Settings live in localStorage 'aqsati_notify' = { on, mode: 'before' | 'day', shown: ['<id>|<date>', …], owner }.
+// owner = the email of the account that switched them on: another account signing in on the same browser gets nothing
+// (settings saved without an owner count as off).
 // The service worker can't read localStorage, so the same object (+ lang) is mirrored into Cache Storage
 // (cache 'aqsati_notify' — not 'aqsati-…', so VERSION bumps never delete it — key /__aqsati_notify). The worker's
 // background check (Periodic Background Sync 'aqsati-dues', installed PWA on Chrome / Android) reads it, shows the same
@@ -40,18 +45,32 @@ const SHOWN_RE = /^[^|]{1,100}\|\d{4}-\d{2}-\d{2}$/;
 
 // ---------- pure ----------
 
-/** Any stored value (object or JSON string) → { on, mode, shown }. */
+/** The account a setting belongs to: its email, trimmed + lower-case ('' when there is none). */
+export function ownerKey(email) {
+  return typeof email === 'string' ? email.trim().toLowerCase().slice(0, 254) : '';
+}
+
+/** Any stored value (object or JSON string) → { on, mode, shown } (+ owner when one was saved). */
 export function normalizeSettings(raw) {
   let v = raw;
   if (typeof v === 'string') {
     try { v = JSON.parse(v); } catch { v = null; }
   }
   const o = v && typeof v === 'object' ? v : {};
-  return {
+  const out = {
     on: o.on === true,
     mode: NOTIFY_MODES.includes(o.mode) ? o.mode : DEFAULT_NOTIFY_MODE,
     shown: Array.isArray(o.shown) ? o.shown.filter((k) => typeof k === 'string' && SHOWN_RE.test(k)).slice(-MAX_SHOWN) : [],
   };
+  const owner = ownerKey(o.owner);
+  if (owner) out.owner = owner;
+  return out;
+}
+
+/** Reminders are on for THIS account: switched on, saved with an owner, and the signed-in user is that owner. */
+export function activeFor(settings, state) {
+  const s = normalizeSettings(settings);
+  return s.on && Boolean(s.owner) && ownerKey(state?.user?.email) === s.owner;
 }
 
 /** 'YYYY-MM-DD' moved by n days. */
@@ -144,12 +163,21 @@ export function notificationFor(due, lang = 'ar') {
   };
 }
 
-/** What still has to be shown now: [{ key, title, options }] — nothing when switched off or already shown. */
+/**
+ * What still has to be shown now: [{ key, title, options }] — nothing when switched off, saved for another account,
+ * or already shown. «قبل بيوم» also returns today's dues («اليوم قسط …») first: when no check ran the day before
+ * (app not opened, background sync late), the due day itself still reminds. The '<id>|<date>' key is the same, so a
+ * reminder already sent the day before is never repeated.
+ */
 export function pendingNotifications(state, today, settings, lang = 'ar') {
   const s = normalizeSettings(settings);
   if (!s.on) return [];
+  if (s.owner && ownerKey(state?.user?.email) !== s.owner) return [];
   const shown = new Set(s.shown);
-  return duesToNotify(state, today, s.mode)
+  const dues = s.mode === 'day'
+    ? duesToNotify(state, today, 'day')
+    : [...duesToNotify(state, today, 'day'), ...duesToNotify(state, today, 'before')];
+  return dues
     .filter((d) => !shown.has(d.key))
     .map((d) => ({ key: d.key, ...notificationFor(d, lang) }));
 }
@@ -161,12 +189,17 @@ export function rememberShown(shown, keys, today) {
   return all.filter((k) => typeof k === 'string' && SHOWN_RE.test(k) && k.slice(-10) >= floor).slice(-MAX_SHOWN);
 }
 
-/** The next day (today or later, within `days`) a reminder would go out: { date, dues } or null. */
-export function nextReminder(state, today, mode = DEFAULT_NOTIFY_MODE, days = 62) {
+/**
+ * The next day (today or later, within `days`) a reminder would go out: { date, dues } or null. Reminders already
+ * shown (`shown` = the dedupe keys) are skipped on every day — a key is '<id>|<due date>', so one sent today, or under
+ * the other mode, is never promised again.
+ */
+export function nextReminder(state, today, mode = DEFAULT_NOTIFY_MODE, days = 62, shown = []) {
   if (!Array.isArray(state?.installments) || !state.installments.length) return null;
+  const skip = new Set(Array.isArray(shown) ? shown : []);
   for (let i = 0; i <= days; i += 1) {
     const date = addDays(today, i);
-    const dues = duesToNotify(state, date, mode);
+    const dues = duesToNotify(state, date, mode).filter((d) => !skip.has(d.key));
     if (dues.length) return { date, dues };
   }
   return null;
@@ -182,7 +215,7 @@ function writeLocal(s) {
   try { localStorage.setItem(NOTIFY_KEY, JSON.stringify(normalizeSettings(s))); } catch { /* storage blocked */ }
 }
 
-/** The saved settings: { on, mode, shown }. */
+/** The saved settings: { on, mode, shown, owner? }. */
 export const getNotifySettings = readLocal;
 
 async function readMirror() {
@@ -195,14 +228,25 @@ async function readMirror() {
   }
 }
 
-async function writeMirror(s, lang = getLang()) {
+/**
+ * Write the worker's copy. Its dedupe keys are MERGED, never replaced: the worker adds the ones it showed, and a
+ * writer holding an older local list (language switch, mode switch, on / off) must not drop them — or the same
+ * reminder could show twice. The merged list is kept locally too (on / mode re-read, so a toggle made in another
+ * tab meanwhile is not undone). → the merged settings.
+ */
+async function writeMirror(s, lang = getLang(), today = todayISO()) {
+  const mine = normalizeSettings(s);
+  const cur = await readMirror();
+  const merged = { ...mine, shown: rememberShown(cur?.shown, mine.shown, today) };
   try {
     const cache = await caches.open(MIRROR_CACHE);
-    const body = JSON.stringify({ ...normalizeSettings(s), lang: lang === 'en' ? 'en' : 'ar' });
+    const body = JSON.stringify({ ...merged, lang: lang === 'en' ? 'en' : 'ar' });
     await cache.put(MIRROR_URL, new Response(body, { headers: { 'Content-Type': 'application/json' } }));
   } catch {
     // no Cache Storage: the page-side reminders still work
   }
+  writeLocal({ ...readLocal(), shown: merged.shown });
+  return merged;
 }
 
 /** Keep the worker's copy in step (language changed, …). */
@@ -281,36 +325,63 @@ async function stopBackgroundSync() {
  */
 export async function checkDues(state, { today = todayISO(), lang = getLang() } = {}) {
   const s = readLocal();
-  if (!s.on || notifySupport() !== 'granted' || !state?.user) return [];
+  if (!activeFor(s, state) || notifySupport() !== 'granted') return [];
   const mirror = await readMirror();
   const known = rememberShown(s.shown, mirror?.shown, today);
   const shown = await show(pendingNotifications(state, today, { ...s, shown: known }, lang));
   const fresh = readLocal(); // another tab may have switched it off meanwhile
   const next = { ...fresh, shown: rememberShown(fresh.shown, [...known, ...shown], today) };
   writeLocal(next);
-  await writeMirror(next, lang);
+  await writeMirror(next, lang, today);
   if (next.on) ensureBackgroundSync().catch(() => {});
   return shown;
 }
 
-let reminded = false;
+const started = new WeakSet();
 
-/** One call per signed-in page: when STATE is loaded, show the reminders due now (once per page load). */
-export function remindDues(store) {
-  if (reminded || !store || !readLocal().on || notifySupport() !== 'granted') return;
-  let off = () => {};
-  const go = (st) => {
-    if (reminded || !store.loaded || !st?.user) return;
-    reminded = true;
-    off();
-    checkDues(st).catch(() => {});
+/**
+ * Signed-in pages (app + installments): show the reminders due now — when STATE loads or changes, and again each time
+ * the page comes back to the front, so a tab or installed app (iOS has no background sync) resumed on a later day
+ * still reminds. Settings and permission are read on every check (switched on in another tab ⇒ no reload needed),
+ * and checks never overlap: two at once could both pass the dedupe before either writes its keys.
+ * opts are for tests: today() → 'YYYY-MM-DD', wait = debounce in ms.
+ */
+export function remindDues(store, { today = todayISO, wait = 250 } = {}) {
+  if (!store || started.has(store)) return;
+  started.add(store);
+  let checking = null;
+  let lastDay = '';
+  let lastState = null;
+  let timer = 0;
+  const run = () => {
+    timer = 0;
+    const st = store.state;
+    if (!store.loaded || !activeFor(readLocal(), st) || notifySupport() !== 'granted') return;
+    const day = today();
+    if (day === lastDay && st === lastState) return; // nothing new since the last check
+    if (checking) { // one at a time
+      timer = setTimeout(run, wait);
+      return;
+    }
+    lastDay = day;
+    lastState = st;
+    checking = checkDues(st, { today: day }).catch(() => {}).finally(() => { checking = null; });
   };
-  off = store.subscribe(go);
-  go(store.state);
+  const soon = () => { // bursts of store.set (load + an action) ⇒ one check
+    clearTimeout(timer);
+    timer = setTimeout(run, wait);
+  };
+  store.subscribe(soon);
+  // directly, not only through a STATE reload: core.js reloads after 60 s and not at all offline
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') soon(); });
+  soon();
 }
 
-/** Switch reminders on: asks for permission first. → { ok: true, background } | { ok: false, reason } */
-export async function enableNotify(mode) {
+/**
+ * Switch reminders on for the signed-in account (owner = its email): asks for permission first.
+ * → { ok: true, background } | { ok: false, reason }
+ */
+export async function enableNotify(mode, owner) {
   if (notifySupport() === 'unsupported') return { ok: false, reason: 'unsupported' };
   let perm = Notification.permission;
   if (perm === 'default') {
@@ -318,7 +389,7 @@ export async function enableNotify(mode) {
   }
   if (perm !== 'granted') return { ok: false, reason: perm === 'denied' ? 'denied' : 'dismissed' };
   const cur = readLocal();
-  const next = { ...cur, on: true, mode: NOTIFY_MODES.includes(mode) ? mode : cur.mode };
+  const next = { ...cur, on: true, mode: NOTIFY_MODES.includes(mode) ? mode : cur.mode, owner: ownerKey(owner) || cur.owner };
   writeLocal(next);
   await writeMirror(next);
   return { ok: true, background: await ensureBackgroundSync() };

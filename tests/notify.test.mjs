@@ -7,6 +7,7 @@ import vm from 'node:vm';
 import {
   duesToNotify, notificationFor, pendingNotifications, rememberShown, normalizeSettings, nextReminder, addDays,
   targetDate, paymentOn, NOTIFY_MODES, DEFAULT_NOTIFY_MODE, SYNC_TAG, MIRROR_CACHE, MIRROR_URL,
+  activeFor, checkDues, refreshMirror, setNotifyMode, remindDues,
 } from '../public/js/logic/notify.js';
 
 const TODAY = '2026-11-16';
@@ -135,15 +136,52 @@ test('pendingNotifications: off → nothing; on → once per installment + date 
   assert.deepEqual(pendingNotifications(st, TODAY, { on: false }), []);
   assert.deepEqual(pendingNotifications(st, TODAY, null), []);
   const first = pendingNotifications(st, TODAY, { on: true, mode: 'before', shown: [] }, 'ar');
-  assert.deepEqual(first.map((n) => n.key), ['A|2026-11-17']);
-  assert.equal(first[0].title, 'باچر قسط تابي 45.500 د.ك — لا تنسى');
+  // «قبل بيوم» also catches up B: due TODAY and never reminded (no check ran yesterday) — today's dues come first
+  assert.deepEqual(first.map((n) => n.key), ['B|2026-11-16', 'A|2026-11-17']);
+  assert.equal(first[0].title, 'اليوم قسط تمارا 30.000 د.ك — لا تنسى');
+  assert.equal(first[1].title, 'باچر قسط تابي 45.500 د.ك — لا تنسى');
   const shown = rememberShown([], first.map((n) => n.key), TODAY);
   assert.deepEqual(pendingNotifications(st, TODAY, { on: true, mode: 'before', shown }), [], 'reload: not again');
   assert.deepEqual(pendingNotifications(st, TODAY, JSON.stringify({ on: true, shown })), [], 'JSON string settings');
-  // same installment, next month → a new reminder
-  assert.deepEqual(pendingNotifications(st, '2026-12-16', { on: true, shown }).map((n) => n.key), ['A|2026-12-17', 'L|2026-12-17']);
-  // switching to «يوم القسط» on the due day itself is a different key for B
-  assert.deepEqual(pendingNotifications(st, TODAY, { on: true, mode: 'day', shown }).map((n) => n.key), ['B|2026-11-16']);
+  // same installments, next month → new reminders (B is due on the 16th again: caught up on its day)
+  assert.deepEqual(pendingNotifications(st, '2026-12-16', { on: true, shown }).map((n) => n.key), ['B|2026-12-16', 'A|2026-12-17', 'L|2026-12-17']);
+  // switching to «يوم القسط» on the due day itself: B is new unless it was already reminded under the same key
+  assert.deepEqual(pendingNotifications(st, TODAY, { on: true, mode: 'day', shown: ['A|2026-11-17'] }).map((n) => n.key), ['B|2026-11-16']);
+  assert.deepEqual(pendingNotifications(st, TODAY, { on: true, mode: 'day', shown }), [], 'B was already reminded today');
+});
+
+test('«قبل بيوم» catches up a missed reminder on the due day — exactly once, never on top of the day-before one', () => {
+  const st = state([TAMARA]); // due 2026-11-16
+  const s = { on: true, mode: 'before', shown: [] };
+  // checks on D-2 and on D (nothing ran on D-1): one «اليوم» notification, on D
+  assert.deepEqual(pendingNotifications(st, '2026-11-14', s), []);
+  const onDay = pendingNotifications(st, '2026-11-16', s);
+  assert.deepEqual(onDay.map((n) => n.key), ['B|2026-11-16']);
+  assert.match(onDay[0].title, /^اليوم قسط تمارا/);
+  const after = { ...s, shown: rememberShown([], onDay.map((n) => n.key), '2026-11-16') };
+  assert.deepEqual(pendingNotifications(st, '2026-11-16', after), [], 'a later check that day');
+  // the day-before reminder did run: the due day does not repeat it
+  const dayBefore = pendingNotifications(st, '2026-11-15', s);
+  assert.deepEqual(dayBefore.map((n) => n.key), ['B|2026-11-16']);
+  assert.match(dayBefore[0].title, /^باچر قسط تمارا/);
+  assert.deepEqual(pendingNotifications(st, '2026-11-16', { ...s, shown: dayBefore.map((n) => n.key) }), []);
+  // marked paid ⇒ nothing to catch up; the day after ⇒ too late, nothing
+  assert.deepEqual(pendingNotifications(state([TAMARA], [pay('B', '2026-11')]), '2026-11-16', s), []);
+  assert.deepEqual(pendingNotifications(st, '2026-11-17', s), []);
+});
+
+test('reminders belong to the account that switched them on (shared browser)', () => {
+  const mine = { on: true, mode: 'before', shown: [], owner: ' A@X.com ' };
+  assert.equal(normalizeSettings(mine).owner, 'a@x.com');
+  assert.equal(activeFor(mine, { user: { email: 'a@x.com' } }), true);
+  assert.equal(activeFor(mine, { user: { email: 'A@x.COM' } }), true);
+  assert.equal(activeFor(mine, { user: { email: 'b@y.com' } }), false);
+  assert.equal(activeFor(mine, { user: null }), false);
+  assert.equal(activeFor({ ...mine, on: false }, { user: { email: 'a@x.com' } }), false);
+  assert.equal(activeFor({ on: true }, state(ALL)), false, 'saved without an owner (before this change) counts as off');
+  const other = { ...state([TABBY]), user: { email: 'b@y.com' } };
+  assert.deepEqual(pendingNotifications(other, TODAY, mine), [], 'another account sees nothing');
+  assert.deepEqual(pendingNotifications({ ...other, user: { email: 'a@x.com' } }, TODAY, mine).map((n) => n.key), ['A|2026-11-17']);
 });
 
 test('rememberShown merges, dedupes, drops dates older than 45 days and junk', () => {
@@ -173,6 +211,16 @@ test('nextReminder: the next day a reminder would go out', () => {
   assert.equal(nextReminder(state(ALL, [pay('A', '2026-11'), pay('B', '2026-11')]), TODAY, 'day').date, '2026-11-25');
   assert.equal(nextReminder(state([]), TODAY), null);
   assert.equal(nextReminder(state([DONE]), TODAY), null);
+});
+
+test('nextReminder skips reminders already shown (today’s, or under the other mode)', () => {
+  const r = nextReminder(state(ALL), TODAY, 'before', 62, ['A|2026-11-17']);
+  assert.equal(r.date, '2026-11-24', 'A was already reminded ⇒ PART (due Nov 25) is next');
+  assert.deepEqual(ids(r.dues), ['P']);
+  assert.equal(nextReminder(state([{ ...TABBY, remaining_count: 1 }]), TODAY, 'before', 62, ['A|2026-11-17']), null);
+  // a «قبل بيوم» reminder already sent for A|11-17 dedupes the «يوم القسط» one on the 17th too
+  assert.equal(nextReminder(state([TABBY]), TODAY, 'day', 62, ['A|2026-11-17']).date, '2026-12-17');
+  assert.equal(nextReminder(state([TABBY]), TODAY, 'day').date, '2026-11-17', 'no shown list = as before');
 });
 
 // ---------- the service worker's copy ----------
@@ -250,13 +298,23 @@ test('sw.js copy agrees with notify.js on every fixture, date, mode and language
           }
         }
       }
+      // what is shown: «قبل بيوم» with its due-day catch-up, the dedupe and the owner check
+      const lang = i % 2 ? 'en' : 'ar';
+      for (const settings of [
+        { on: true, mode: 'before', shown: [] },
+        { on: true, mode: 'before', shown: [`B|${today}`, `A|${addDays(today, 1)}`] },
+        { on: true, mode: 'before', owner: 'x@y.z' },
+        { on: true, mode: 'before', owner: 'other@y.z' },
+      ]) {
+        assert.deepEqual(plain(ctx.ntfPending(st, today, settings, lang)), pendingNotifications(st, today, settings, lang), `pending ${today} ${JSON.stringify(settings)}`);
+      }
     }
   }
   assert.ok(compared > 100, `compared ${compared} notifications`);
   const settings = { on: true, mode: 'day', shown: ['B|2026-11-16'] };
   assert.deepEqual(plain(ctx.ntfPending(state(ALL), '2027-01-16', settings, 'en')), pendingNotifications(state(ALL), '2027-01-16', settings, 'en'));
   assert.deepEqual(plain(ctx.ntfRemember(['A|2026-09-01', 'A|2026-11-17'], ['B|2026-11-16'], TODAY)), rememberShown(['A|2026-09-01', 'A|2026-11-17'], ['B|2026-11-16'], TODAY));
-  for (const raw of [null, '{x', '{"on":true,"mode":"day"}', { on: true, mode: 'q', shown: ['A|2026-11-17', 'no'] }]) {
+  for (const raw of [null, '{x', '{"on":true,"mode":"day"}', { on: true, mode: 'q', shown: ['A|2026-11-17', 'no'] }, { on: true, owner: ' X@Y.z' }, { owner: 7 }]) {
     assert.deepEqual(plain(ctx.ntfNormalize(raw)), normalizeSettings(raw));
   }
   assert.equal(MIRROR_CACHE, 'aqsati_notify');
@@ -278,7 +336,7 @@ test('periodicsync «aqsati-dues»: one notification for the installment due tom
   const due = inst('T1', 'تابي', 'جوال', 45.5, Number(tomorrow.slice(8)), 3, tomorrow);
   const notYet = inst('T2', 'تمارا', '', 20, Number(addDays(today, 5).slice(8)), 3, addDays(today, 5));
   const w = loadWorker({ stateBody: state([due, notYet]) });
-  await w.cache('aqsati_notify').put('/__aqsati_notify', new Response(JSON.stringify({ on: true, mode: 'before', shown: [], lang: 'ar' })));
+  await w.cache('aqsati_notify').put('/__aqsati_notify', new Response(JSON.stringify({ on: true, mode: 'before', shown: [], lang: 'ar', owner: 'x@y.z' })));
 
   await w.fire('periodicsync', { tag: 'aqsati-dues' });
   assert.equal(w.shown.length, 1);
@@ -293,6 +351,7 @@ test('periodicsync «aqsati-dues»: one notification for the installment due tom
   const saved = JSON.parse(w.store.get('aqsati_notify').get('/__aqsati_notify'));
   assert.deepEqual(saved.shown, [`T1|${tomorrow}`], 'the shown key is written back for the page to see');
   assert.equal(saved.lang, 'ar');
+  assert.equal(saved.owner, 'x@y.z', 'the owner is kept');
 
   await w.fire('periodicsync', { tag: 'aqsati-dues' });
   assert.equal(w.shown.length, 1, 'the next background run does not repeat it');
@@ -300,16 +359,19 @@ test('periodicsync «aqsati-dues»: one notification for the installment due tom
   assert.equal(w.calls.fetch.length, 2, 'other tags are ignored');
 });
 
-test('periodicsync shows nothing when switched off, without permission, or signed out', async () => {
+test('periodicsync shows nothing when switched off, without permission, signed out, or for another account', async () => {
   const today = localToday();
   const tomorrow = addDays(today, 1);
   const due = inst('T1', 'تابي', '', 45.5, Number(tomorrow.slice(8)), 3, tomorrow);
+  const owner = 'x@y.z'; // state()'s user
   const cases = [
-    { settings: { on: false }, opts: { stateBody: state([due]) } },
+    { settings: { on: false, owner }, opts: { stateBody: state([due]) } },
     { settings: null, opts: { stateBody: state([due]) } },
-    { settings: { on: true }, opts: { stateBody: state([due]), permission: 'denied' } },
-    { settings: { on: true }, opts: { stateBody: { ...state([due]), user: null } } },
-    { settings: { on: true, mode: 'day' }, opts: { stateBody: state([due]) } },
+    { settings: { on: true, owner }, opts: { stateBody: state([due]), permission: 'denied' } },
+    { settings: { on: true, owner }, opts: { stateBody: { ...state([due]), user: null } } },
+    { settings: { on: true, mode: 'day', owner }, opts: { stateBody: state([due]) } },
+    { settings: { on: true, owner: 'a@x.com' }, opts: { stateBody: state([due]) } }, // switched on by another account
+    { settings: { on: true }, opts: { stateBody: state([due]) } }, // saved without an owner ⇒ off
   ];
   for (const { settings, opts } of cases) {
     const w = loadWorker(opts);
@@ -319,7 +381,7 @@ test('periodicsync shows nothing when switched off, without permission, or signe
   }
   // English mirror → English text
   const en = loadWorker({ stateBody: state([due]) });
-  await en.cache('aqsati_notify').put('/__aqsati_notify', new Response(JSON.stringify({ on: true, lang: 'en' })));
+  await en.cache('aqsati_notify').put('/__aqsati_notify', new Response(JSON.stringify({ on: true, lang: 'en', owner: 'X@Y.Z' })));
   await en.fire('periodicsync', { tag: 'aqsati-dues' });
   assert.equal(en.shown[0].title, "Tabby installment due tomorrow: KWD 45.500 — don't forget");
 });
@@ -343,4 +405,126 @@ test('notificationclick focuses /installments, or moves another window there, or
   const none = loadWorker({ windows: [] });
   await none.fire('notificationclick', click({ url: '//evil.example/x' }));
   assert.deepEqual(none.calls.openWindow, ['https://aqsati.test/installments'], 'only same-origin paths');
+});
+
+// ---------- browser part (stubbed localStorage, Cache Storage, Notification, document) ----------
+
+/** Fresh browser stubs on globalThis; the notify.js functions read them at call time. */
+function browserEnv() {
+  const ls = new Map();
+  const cache = new Map();
+  const notes = [];
+  const listeners = {};
+  class FakeNotification {
+    static permission = 'granted';
+    constructor(title, options) { notes.push({ title, key: options?.data?.key }); }
+    addEventListener() {}
+  }
+  globalThis.localStorage = {
+    getItem: (k) => (ls.has(k) ? ls.get(k) : null),
+    setItem: (k, v) => { ls.set(k, String(v)); },
+    removeItem: (k) => { ls.delete(k); },
+  };
+  globalThis.caches = {
+    open: async () => ({
+      match: async (u) => (cache.has(String(u)) ? new Response(cache.get(String(u))) : undefined),
+      put: async (u, res) => { cache.set(String(u), await res.text()); },
+    }),
+  };
+  globalThis.Notification = FakeNotification;
+  globalThis.window = { isSecureContext: true, Notification: FakeNotification, focus() {} };
+  globalThis.document = {
+    visibilityState: 'visible',
+    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
+  };
+  return {
+    notes,
+    keys: () => notes.map((n) => n.key),
+    setLocal: (v) => ls.set('aqsati_notify', JSON.stringify(v)),
+    local: () => JSON.parse(ls.get('aqsati_notify') || 'null'),
+    setMirror: (v) => cache.set('/__aqsati_notify', JSON.stringify(v)),
+    mirror: () => JSON.parse(cache.get('/__aqsati_notify') || 'null'),
+    resume: () => { for (const fn of listeners.visibilitychange || []) fn(); },
+  };
+}
+const settle = () => new Promise((r) => { setTimeout(r, 60); });
+
+test('writing the mirror never drops the keys the background worker already showed', async () => {
+  const today = localToday();
+  const tomorrow = addDays(today, 1);
+  const st = state([inst('W', 'تابي', '', 45.5, Number(tomorrow.slice(8)), 3, tomorrow)]);
+  const key = `W|${tomorrow}`;
+  const seed = (env, shownByWorker) => {
+    env.setLocal({ on: true, mode: 'before', shown: [], owner: 'x@y.z' }); // the page's copy: older
+    env.setMirror({ on: true, mode: 'before', shown: shownByWorker, owner: 'x@y.z', lang: 'ar' });
+  };
+
+  // sanity: not shown by the worker ⇒ the page shows it
+  const fresh = browserEnv();
+  seed(fresh, []);
+  assert.deepEqual(await checkDues(st, { today }), [key]);
+
+  // (a) a language switch rewrites the mirror, then a check runs
+  const a = browserEnv();
+  seed(a, [key]);
+  await refreshMirror();
+  assert.ok(a.mirror().shown.includes(key), 'refreshMirror keeps the worker key');
+  assert.ok(a.local().shown.includes(key), '… and copies it to the page');
+  assert.deepEqual(await checkDues(st, { today }), []);
+
+  // (b) «يوم القسط» and back, a check after each switch
+  const b = browserEnv();
+  seed(b, [key]);
+  await setNotifyMode('day');
+  assert.ok(b.mirror().shown.includes(key));
+  assert.equal(b.mirror().mode, 'day');
+  assert.deepEqual(await checkDues(st, { today }), []);
+  await setNotifyMode('before');
+  assert.ok(b.mirror().shown.includes(key));
+  assert.deepEqual(await checkDues(st, { today }), []);
+  assert.ok(b.mirror().shown.includes(key));
+  assert.equal(a.notes.length + b.notes.length, 0, 'never shown twice');
+});
+
+test('remindDues: a page left open across midnight reminds again when it comes back to the front', async () => {
+  const env = browserEnv();
+  env.setLocal({ on: false, mode: 'before', shown: [], owner: 'x@y.z' });
+  let day = '2026-11-16';
+  const X = inst('X', 'تابي', '', 45.5, 17, 3, '2026-11-17'); // reminded on the 16th
+  const Y = inst('Y', 'تمارا', '', 20, 18, 3, '2026-11-18'); // reminded on the 17th
+  const subs = [];
+  const store = { loaded: true, state: state([X, Y]), subscribe: (fn) => { subs.push(fn); return () => {}; } };
+  const set = (next) => { store.state = next; for (const fn of subs) fn(next); };
+
+  remindDues(store, { today: () => day, wait: 1 });
+  await settle();
+  assert.deepEqual(env.keys(), [], 'switched off');
+  env.setLocal({ ...env.local(), on: true }); // switched on in /account (another tab): no reload needed
+  env.resume();
+  await settle();
+  assert.deepEqual(env.keys(), ['X|2026-11-17']);
+  env.resume();
+  await settle();
+  assert.equal(env.notes.length, 1, 'same day, same STATE: no new check');
+
+  day = '2026-11-17'; // midnight passes; the tab / installed app is resumed
+  env.resume();
+  await settle();
+  assert.deepEqual(env.keys(), ['X|2026-11-17', 'Y|2026-11-18'], 'X (due today) is not repeated, Y (tomorrow) shows');
+
+  // an installment due tomorrow added meanwhile reminds right away, once
+  const Z = inst('Z', 'ديما', '', 10, 18, 2, '2026-11-18');
+  set(state([X, Y, Z]));
+  await settle();
+  assert.deepEqual(env.keys().slice(2), ['Z|2026-11-18']);
+  remindDues(store, { today: () => day, wait: 1 }); // a second call for the same store does nothing
+  assert.equal(subs.length, 1);
+  set(state([X, Y, Z]));
+  set(state([X, Y, Z])); // a burst ⇒ one check
+  await settle();
+  assert.equal(env.notes.length, 3);
+  // another account signs in on this browser: nothing
+  set({ ...state([X, Y, Z, inst('Q', 'تابي', '', 5, 18, 2, '2026-11-18')]), user: { email: 'b@y.com' } });
+  await settle();
+  assert.equal(env.notes.length, 3);
 });
