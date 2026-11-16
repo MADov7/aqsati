@@ -168,3 +168,88 @@ test('CSV: quoting, CRLF and formula-injection guard', () => {
   assert.equal(csvCell('سطر\nثاني'), '"سطر\nثاني"');
   assert.equal(toCSV([['التاريخ', 'المبلغ'], ['2026-11-20', '50.000']]), 'التاريخ,المبلغ\r\n2026-11-20,50.000\r\n');
 });
+
+// ---------- remaining modes: open-ended (no end date) and amount with a partial final payment ----------
+
+import { debtFreeCountdown } from '../public/js/logic/schedule.js';
+
+const OPEN = { id: 'O', provider: 'بطاقة ائتمانية', title: '', monthly_amount: 40, due_day: 10, remaining_count: null, remaining_mode: 'open', last_amount: null, first_due_date: '2026-09-10' };
+const PART = { id: 'P', provider: 'تابي', title: 'لابتوب', monthly_amount: 25, due_day: 25, remaining_count: 7, remaining_mode: 'amount', last_amount: 12.5, first_due_date: '2026-11-25' };
+
+test('monthEvents: open-ended every month (no total, never last); the partial final payment carries its amount', () => {
+  const today = '2026-11-15';
+  const far = monthEvents([OPEN], '2030-01', [], today);
+  assert.equal(far.length, 1);
+  assert.deepEqual([far[0].total, far[0].last, far[0].open, far[0].amount, far[0].n, far[0].date], [null, false, true, 40, 41, '2030-01-10']);
+  const may = monthEvents([PART], '2027-05', [], today);
+  assert.deepEqual([may[0].amount, may[0].last, may[0].open, may[0].total, may[0].n], [12.5, true, false, 7, 7]);
+  assert.deepEqual(monthEvents([PART], '2027-04', [], today).map((e) => [e.amount, e.last]), [[25, false]]);
+  assert.equal(monthEvents([OPEN], '2026-08', [], today).length, 0, 'nothing before the first due date');
+  assert.equal(monthTotals(monthEvents([PART, OPEN], '2027-05', [], today)).total, 52.5);
+});
+
+test('timeline: open-ended in every month, never ending', () => {
+  const tl = timeline([...ALL, OPEN], '2026-11', 12);
+  assert.deepEqual(tl.slice(0, 4).map((m) => [m.key, m.total, m.count]), [
+    ['2026-11', 290, 3], ['2026-12', 320, 4], ['2027-01', 320, 4], ['2027-02', 270, 3],
+  ]);
+  assert.deepEqual(tl[2].ending, ['تابي']);
+  assert.ok(tl.every((m) => !m.ending.includes('بطاقة ائتمانية')));
+  const part = timeline([PART], '2027-04', 3);
+  assert.deepEqual(part.map((m) => [m.key, m.total, m.ending]), [['2027-04', 25, []], ['2027-05', 12.5, ['تابي']], ['2027-06', 0, []]]);
+});
+
+test('remainingSummary: open-ended counted monthly, never in debt or the debt-free date', () => {
+  const s = remainingSummary([...ALL, OPEN], '2026-11-15');
+  assert.deepEqual(
+    [s.activeCount, s.finiteCount, s.openCount, s.openMonthly, s.totalDebt, s.monthly, s.debtFreeDate, s.monthsLeft, s.lastInstallment.id],
+    [4, 3, 1, 40, 2730, 320, '2027-10-25', 12, 'B'],
+  );
+  const only = remainingSummary([OPEN], '2026-11-15');
+  assert.deepEqual(
+    [only.activeCount, only.finiteCount, only.openCount, only.totalDebt, only.monthly, only.debtFreeDate, only.lastInstallment, only.monthsLeft],
+    [1, 0, 1, 0, 40, null, null, 0],
+  );
+  const part = remainingSummary([PART], '2027-04-26');
+  assert.deepEqual([part.totalDebt, part.monthsLeft, part.debtFreeDate], [12.5, 1, '2027-05-25']);
+  const none = remainingSummary([], '2026-11-15');
+  assert.deepEqual([none.finiteCount, none.openCount, none.openMonthly], [0, 0, 0]);
+});
+
+test('byProvider: open-ended in «monthly», not in «debt»', () => {
+  const monthly = byProvider([...ALL, OPEN], '2026-11-15', 'monthly');
+  assert.deepEqual(monthly.find((g) => g.provider === 'بطاقة ائتمانية'), { provider: 'بطاقة ائتمانية', value: 40, count: 1, color: 4, pct: 12 });
+  assert.equal(monthly.reduce((s, g) => s + g.pct, 0), 100);
+  const debt = byProvider([...ALL, OPEN], '2026-11-15', 'debt');
+  assert.ok(!debt.some((g) => g.provider === 'بطاقة ائتمانية'));
+  assert.deepEqual(debt.map((g) => g.value), [2400, 180, 150]);
+  assert.deepEqual(byProvider([OPEN], '2026-11-15', 'debt'), []);
+  assert.deepEqual(byProvider([PART], '2026-11-15', 'debt').map((g) => g.value), [162.5]);
+});
+
+test('debtFreeCountdown: finite installments only, open-ended counted aside', () => {
+  const f = debtFreeCountdown(ALL, '2026-11-15');
+  assert.deepEqual(
+    [f.total, f.paid, f.pct, f.last, f.left, f.monthsLeft, f.finiteCount, f.activeCount, f.openCount, f.openMonthly],
+    [2730, 0, 0, '2027-10-25', 21, 11, 3, 3, 0, 0],
+  );
+  const later = debtFreeCountdown(ALL, '2026-11-21');
+  assert.deepEqual([later.paid, later.left], [50, 20]);
+  assert.ok(Math.abs(later.pct - (50 / 2730) * 100) < 1e-9);
+  const withOpen = debtFreeCountdown([...ALL, OPEN], '2026-11-15');
+  assert.deepEqual(
+    [withOpen.total, withOpen.paid, withOpen.last, withOpen.left, withOpen.monthsLeft, withOpen.finiteCount, withOpen.activeCount, withOpen.openCount, withOpen.openMonthly],
+    [2730, 0, '2027-10-25', 21, 11, 3, 3, 1, 40],
+  );
+  const only = debtFreeCountdown([OPEN], '2026-11-15');
+  assert.deepEqual([only.last, only.activeCount, only.finiteCount, only.openCount, only.total, only.pct, only.monthsLeft], [null, 0, 0, 1, 0, 0, 0]);
+  assert.equal(debtFreeCountdown([PART], '2026-11-15').total, 162.5);
+  const partLate = debtFreeCountdown([PART], '2027-05-01');
+  assert.deepEqual([partLate.paid, partLate.left], [150, 1]);
+  // a finished plan counts as fully paid
+  const done = debtFreeCountdown([{ ...A, first_due_date: '2026-05-20' }], '2026-11-15');
+  assert.deepEqual([done.total, done.paid, done.pct, done.activeCount, done.finiteCount, done.last], [150, 150, 100, 0, 1, null]);
+  assert.deepEqual(debtFreeCountdown([], '2026-11-15'), {
+    finiteCount: 0, activeCount: 0, total: 0, paid: 0, pct: 0, last: null, left: 0, monthsLeft: 0, openCount: 0, openMonthly: 0,
+  });
+});

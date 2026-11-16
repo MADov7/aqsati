@@ -28,6 +28,69 @@ export function parseWhole(input) {
 
 export const round3 = (x) => Math.round((x + Number.EPSILON) * 1000) / 1000;
 
+// ---------- what the user knows about "what's left" (three modes) ----------
+//   'count'  — n payments of monthly_amount (the default; old documents have no remaining_mode)
+//   'amount' — a total still to pay: n − 1 full payments + one final payment (last_amount when it is partial)
+//   'open'   — no end date: a real monthly payment every month (remaining_count null)
+
+export const REMAINING_MODES = ['count', 'amount', 'open'];
+export const MAX_PAYMENTS = 360;
+
+// money in fils (integer thousandths of a KWD) so sums never drift
+const fils = (x) => Math.round(Number(x) * 1000);
+const kwd = (f) => round3(f / 1000);
+
+/** The installment's mode; anything missing or unknown is 'count' (old documents). */
+export function remainingMode(inst) {
+  return ['amount', 'open'].includes(inst?.remaining_mode) ? inst.remaining_mode : 'count';
+}
+
+export const isOpenEnded = (inst) => remainingMode(inst) === 'open';
+
+/** Payments in the plan from first_due_date (Infinity for open-ended). */
+export function planCount(inst) {
+  return isOpenEnded(inst) ? Infinity : Math.max(0, Number(inst?.remaining_count) || 0);
+}
+
+/** Amount of the k-th payment (k = 0 is first_due_date): the monthly amount, or last_amount for a partial final one. */
+export function paymentAmount(inst, k) {
+  const m = round3(Number(inst?.monthly_amount) || 0);
+  if (isOpenEnded(inst)) return m;
+  if (k === planCount(inst) - 1) {
+    const l = round3(Number(inst.last_amount));
+    if (l > 0 && l < m) return l;
+  }
+  return m;
+}
+
+/** Everything the plan costs from first_due_date on (null for open-ended). */
+export function planTotal(inst) {
+  if (isOpenEnded(inst)) return null;
+  const n = planCount(inst);
+  if (n === 0) return 0;
+  return kwd(fils(Number(inst.monthly_amount) || 0) * (n - 1) + fils(paymentAmount(inst, n - 1)));
+}
+
+/**
+ * A total still to pay split into monthly payments: { count, last, lastAmount } or null.
+ * count = ceil(total / monthly); last = the final payment (0 < last ≤ monthly);
+ * lastAmount = last when it is partial (< monthly), else null. Takes numbers — parse user text first.
+ * The server uses this very function, so the editor's hint always matches what gets saved.
+ */
+export function splitAmount(total, monthly) {
+  const T = fils(total);
+  const M = fils(monthly);
+  if (!(Number.isFinite(T) && Number.isFinite(M) && T > 0 && M > 0)) return null;
+  let count = Math.ceil(T / M);
+  // integer-exact ceil (only while the numbers are exact integers; absurd totals just keep the estimate)
+  if (Number.isSafeInteger(T) && Number.isSafeInteger(M) && Number.isSafeInteger(M * count)) {
+    while (count > 1 && M * (count - 1) >= T) count -= 1;
+    while (M * count < T) count += 1;
+  }
+  const lastF = T - M * (count - 1);
+  return { count, last: kwd(lastF), lastAmount: lastF < M ? kwd(lastF) : null };
+}
+
 // ---------- dates ----------
 
 export function isoDate(y, m, d) {
@@ -82,22 +145,54 @@ export function daysBetween(fromIso, toIso) {
 /**
  * Where an installment stands today. A payment counts as done once its due date has passed,
  * so "remaining" goes down by itself every month without the user editing anything.
+ * → { monthly, mode, open, count, paidCount, remaining, active, nextDue, nextAmount, lastDue, lastAmount,
+ *     daysLeft, remainingTotal }. Open-ended: count / remaining / lastDue / lastAmount / remainingTotal are null
+ *     and it is always active (its next due date is computed directly, no loop over the years).
  */
 export function installmentStatus(inst, today) {
-  const total = Number(inst.remaining_count);
-  let paid = 0;
-  while (paid < total && nthDueDate(inst, paid) < today) paid += 1;
-  const remaining = total - paid;
   const monthly = Number(inst.monthly_amount);
+  const mode = remainingMode(inst);
+  if (mode === 'open') {
+    let k0 = Math.max(0, monthsBetween(monthKey(inst.first_due_date), monthKey(today)));
+    if (nthDueDate(inst, k0) < today) k0 += 1;
+    const nextDue = nthDueDate(inst, k0);
+    return {
+      monthly,
+      mode,
+      open: true,
+      count: null,
+      paidCount: k0,
+      remaining: null,
+      active: true,
+      nextDue,
+      nextAmount: paymentAmount(inst, k0),
+      lastDue: null,
+      lastAmount: null,
+      daysLeft: daysBetween(today, nextDue),
+      remainingTotal: null,
+    };
+  }
+  const count = planCount(inst);
+  let paid = 0;
+  while (paid < count && nthDueDate(inst, paid) < today) paid += 1;
+  const remaining = count - paid;
   const nextDue = remaining > 0 ? nthDueDate(inst, paid) : null;
+  const lastAmount = paymentAmount(inst, count - 1);
   return {
     monthly,
+    mode,
+    open: false,
+    count,
+    paidCount: paid,
     remaining,
     active: remaining > 0,
     nextDue,
-    lastDue: nthDueDate(inst, total - 1),
+    nextAmount: remaining > 0 ? paymentAmount(inst, paid) : null,
+    lastDue: nthDueDate(inst, count - 1),
+    lastAmount,
     daysLeft: nextDue ? daysBetween(today, nextDue) : null,
-    remainingTotal: round3(monthly * remaining),
+    // the partial final payment (mode 'amount') is the last one; for mode 'count' this is monthly × remaining
+    remainingTotal: remaining > 0 ? kwd(fils(monthly) * (remaining - 1) + fils(lastAmount)) : 0,
   };
 }
 
@@ -108,13 +203,18 @@ export function levelFor(ratio, safeLimit) {
   return 'ok';
 }
 
-/** Everything the month dashboard shows. */
+/**
+ * Everything the month dashboard shows. Open-ended installments are always active and count every month in
+ * monthlyTotal / ratio (the regular commitment: a partial final payment still counts as the full monthly here),
+ * but never in totalDebt. leftThisMonth uses each next payment's real amount.
+ */
 export function monthSummary(installments, salary, safeLimit, today) {
   const items = installments.map((inst) => ({ ...inst, ...installmentStatus(inst, today) }));
   const active = items
     .filter((i) => i.active)
     .sort((a, b) => (a.nextDue < b.nextDue ? -1 : a.nextDue > b.nextDue ? 1 : b.monthly - a.monthly));
   const finished = items.filter((i) => !i.active);
+  const openActive = active.filter((i) => i.open);
   const month = today.slice(0, 7);
   const sum = (list, pick) => round3(list.reduce((s, i) => s + pick(i), 0));
   const monthlyTotal = sum(active, (i) => i.monthly);
@@ -124,12 +224,15 @@ export function monthSummary(installments, salary, safeLimit, today) {
     active,
     finished,
     monthlyTotal,
-    leftThisMonth: sum(active.filter((i) => i.nextDue.slice(0, 7) === month), (i) => i.monthly),
-    totalDebt: sum(active, (i) => i.remainingTotal),
+    leftThisMonth: sum(active.filter((i) => i.nextDue.slice(0, 7) === month), (i) => i.nextAmount),
+    totalDebt: sum(active.filter((i) => !i.open), (i) => i.remainingTotal),
     ratio,
     level: levelFor(ratio, safeLimit),
     freeAfter: hasSalary ? round3(salary - monthlyTotal) : null,
     limitAmount: hasSalary ? round3((salary * safeLimit) / 100) : null,
+    openCount: openActive.length,
+    openMonthly: sum(openActive, (i) => i.monthly),
+    finiteCount: active.length - openActive.length,
   };
 }
 
@@ -186,19 +289,45 @@ export function validateSalaryDay(raw) {
   return { ok: true, error: null, value: day };
 }
 
+/**
+ * raw = { provider, title, monthly, dueDay, remainingMode?, remaining?, amountLeft? } (strings from the form).
+ * remainingMode: missing / null → 'count' (old clients). Only the field of the chosen mode is read:
+ *   'count' → remaining (1..360) · 'amount' → amountLeft (KWD, split with splitAmount, ≤ 360 payments) · 'open' → nothing.
+ * value = { provider, title, monthly, dueDay, remainingMode, remaining, amountLeft, lastAmount } (always this shape).
+ */
 export function validateInstallmentInput(raw) {
   const errors = {};
   const provider = String(raw.provider ?? '').trim();
   const title = String(raw.title ?? '').trim();
   const monthly = round3(parseAmount(raw.monthly));
   const dueDay = parseWhole(raw.dueDay);
-  const remaining = parseWhole(raw.remaining);
+  const mode = raw.remainingMode == null ? 'count' : raw.remainingMode;
+  const validMode = REMAINING_MODES.includes(mode);
   if (!provider || provider.length > 40) errors.provider = 'اكتب اسم الجهة';
   if (title.length > 80) errors.title = 'خله أقصر من 80 حرف';
   if (!(monthly > 0) || monthly >= 1e6) errors.monthly = 'حط مبلغ صحيح أكبر من صفر';
   if (!(dueDay >= 1 && dueDay <= 31)) errors.dueDay = 'يوم من 1 إلى 31';
-  if (!(remaining >= 1 && remaining <= 360)) errors.remaining = 'عدد من 1 إلى 360';
-  return { ok: Object.keys(errors).length === 0, errors, value: { provider, title, monthly: round3(monthly), dueDay, remaining } };
+  if (!validMode) errors.remainingMode = 'اختار وش تعرف عن الباقي';
+  let remaining = null;
+  let amountLeft = null;
+  let lastAmount = null;
+  if (mode === 'count') {
+    remaining = parseWhole(raw.remaining);
+    if (!(remaining >= 1 && remaining <= MAX_PAYMENTS)) errors.remaining = 'عدد من 1 إلى 360';
+  } else if (mode === 'amount') {
+    // split the ROUNDED numbers — that's what gets saved (and what the editor's hint shows)
+    amountLeft = round3(parseAmount(raw.amountLeft));
+    const inRange = amountLeft > 0 && amountLeft < 1e9;
+    const split = inRange && !errors.monthly ? splitAmount(amountLeft, monthly) : null;
+    if (!inRange || (split && split.count > MAX_PAYMENTS)) errors.amountLeft = 'حط مبلغ أكبر من صفر، وما يطلع أكثر من 360 قسط';
+    remaining = split ? split.count : null;
+    lastAmount = split ? split.lastAmount : null;
+  }
+  return {
+    ok: Object.keys(errors).length === 0,
+    errors,
+    value: { provider, title, monthly: round3(monthly), dueDay, remainingMode: mode, remaining, amountLeft, lastAmount },
+  };
 }
 
 export function validateCheckInput(raw) {
@@ -260,10 +389,10 @@ export function monthsBetween(a, b) {
   return (by * 12 + bm) - (ay * 12 + am);
 }
 
-/** Which payment (k, 0-based) of the installment falls in month 'YYYY-MM', or -1 if none. */
+/** Which payment (k, 0-based) of the installment falls in month 'YYYY-MM', or -1 if none (open-ended: every month). */
 export function paymentIndexIn(inst, key) {
   const k = monthsBetween(monthKey(inst.first_due_date), key);
-  return k >= 0 && k < Number(inst.remaining_count) ? k : -1;
+  return k >= 0 && (isOpenEnded(inst) || k < planCount(inst)) ? k : -1;
 }
 
 /** The installment's due date inside month 'YYYY-MM', or null when it has no payment that month. */
@@ -272,23 +401,33 @@ export function dueInMonth(inst, key) {
   return k < 0 ? null : nthDueDate(inst, k);
 }
 
-/** Every payment of one installment: [{ k, date, month }], oldest first. */
-export function scheduleFor(inst) {
-  const total = Math.max(0, Number(inst.remaining_count) || 0);
+/**
+ * Payments of one installment: [{ k, date, month, amount }], oldest first.
+ * At most `limit` entries (open-ended ones have no end, so they give exactly `limit`).
+ */
+export function scheduleFor(inst, { limit = MAX_PAYMENTS } = {}) {
+  const cap = Number(limit);
+  const total = Math.min(planCount(inst), Number.isFinite(cap) ? Math.max(0, cap) : MAX_PAYMENTS);
   const out = [];
   for (let k = 0; k < total; k += 1) {
     const date = nthDueDate(inst, k);
-    out.push({ k, date, month: monthKey(date) });
+    out.push({ k, date, month: monthKey(date), amount: paymentAmount(inst, k) });
   }
   return out;
 }
 
-/** All payments due in month 'YYYY-MM' across installments: [{ inst, k, date, amount }], by date. */
+/**
+ * All payments due in month 'YYYY-MM' across installments: [{ inst, k, date, amount, last, open }], by date.
+ * amount is that payment's real amount (a partial final payment uses last_amount); last = the plan's final
+ * payment (never for open-ended).
+ */
 export function dueEventsInMonth(installments, key) {
   const events = [];
   for (const inst of installments || []) {
     const k = paymentIndexIn(inst, key);
-    if (k >= 0) events.push({ inst, k, date: nthDueDate(inst, k), amount: round3(Number(inst.monthly_amount)) });
+    if (k < 0) continue;
+    const open = isOpenEnded(inst);
+    events.push({ inst, k, date: nthDueDate(inst, k), amount: paymentAmount(inst, k), last: !open && k === planCount(inst) - 1, open });
   }
   return events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : b.amount - a.amount));
 }

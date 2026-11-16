@@ -82,3 +82,16 @@ test('badgeText: Arabic and English wording for every badge', () => {
   }
   assert.equal(badgeText('streak3', 'fr').title, badgeText('streak3', 'ar').title);
 });
+
+test('badges: an open-ended installment never finishes, so it blocks «debt free» and «first finish»', () => {
+  const OPEN = { id: 'o', provider: 'بطاقة ائتمانية', title: '', monthly_amount: 40, due_day: 10, remaining_count: null, remaining_mode: 'open', last_amount: null, first_due_date: '2026-03-10' };
+  const b = map(computeBadges({ installments: [OPEN], payments: [], profile: { salary: 1000, safe_limit: 40, salary_day: 25 } }, TODAY));
+  assert.equal(b.debt_free.unlocked, false);
+  assert.equal(b.first_finish.unlocked, false);
+  assert.equal(b.first_add.unlocked, true);
+  assert.equal(b.under_limit.unlocked, true); // 40 / 1000 counts every month
+  assert.deepEqual(b.paid_month.progress, { value: 0, target: 1 }, 'due this month too');
+  const withDone = map(computeBadges({ installments: [OPEN, DONE], payments: [], profile: null }, TODAY));
+  assert.equal(withDone.first_finish.unlocked, true);
+  assert.equal(withDone.debt_free.unlocked, false);
+});

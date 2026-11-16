@@ -64,3 +64,14 @@ test('monthStatus: counts due and paid for one month (array or Set of keys)', ()
   assert.deepEqual(monthStatus([A, B], new Set(['a|2026-10', 'b|2026-10']), '2026-10').complete, true);
   assert.equal(monthStatus([A, B], [], '2027-03').due, 1); // B finished in Feb
 });
+
+test('streak: an open-ended installment is due every month from its first due date', () => {
+  const OPEN = { id: 'o', provider: 'بطاقة ائتمانية', title: '', monthly_amount: 40, due_day: 10, remaining_count: null, remaining_mode: 'open', last_amount: null, first_due_date: '2026-09-10' };
+  const s = computeStreak([OPEN], [pay('o', '2026-09'), pay('o', '2026-10'), pay('o', '2026-11')], TODAY);
+  assert.equal(s.current, 3);
+  assert.equal(s.best, 3);
+  assert.equal(s.thisMonth.due, 1);
+  assert.equal(s.thisMonth.complete, true);
+  assert.equal(s.months.find((m) => m.month === '2026-08').due, 0);
+  assert.equal(monthStatus([OPEN], [], '2031-01').due, 1, 'no end');
+});

@@ -7,6 +7,8 @@ import * as C from '../../calc.js';
 import { buildTips, duesBeforeSalary } from '../logic/tips.js';
 import { computeBadges, badgeText, newlyUnlocked } from '../logic/badges.js';
 import { startTour, tourDone } from '../logic/tour.js';
+import { remindDues } from '../logic/notify.js';
+import { debtFreeCountdown } from '../logic/schedule.js';
 
 // ---------- strings ----------
 
@@ -56,6 +58,11 @@ registerStrings({
     'dash.upAll': 'كل أقساطي',
     'dash.upMore': 'وباقي {count} بصفحة أقساطي',
     'dash.left2': 'باقي {count}',
+    'dash.debtOpen': 'ما يشمل المفتوحة ({n})',
+    // n = how many (agreement: قسط واحد مفتوح · قسطين مفتوحين · 3 أقساط مفتوحة)
+    'dash.freeOpenNote': (v) => `ما يشمل ${v.count} ${v.n === 1 ? 'مفتوح' : v.n === 2 ? 'مفتوحين' : 'مفتوحة'} (${v.amount} بالشهر) — ${v.n === 1 ? 'يبقى' : 'تبقى'} عليك بعد هالتاريخ.`,
+    'dash.freeOpenOnly': 'كل أقساطك مفتوحة بدون تاريخ نهاية، فما نقدر نحسب متى تخلص.',
+    'dash.freeOpenCta': 'حدّد كم باقي',
     'dash.last': 'آخر قسط {month}',
     'dash.paidChip': 'مدفوع ✓',
     'dash.emptyTitle': 'ما في أقساط للحين',
@@ -167,6 +174,12 @@ registerStrings({
     'dash.upAll': 'All installments',
     'dash.upMore': 'and {n} more on the installments page',
     'dash.left2': '{count} left',
+    'dash.debtOpen': 'Excludes open-ended ({n})',
+    'dash.freeOpenNote': (v) => (v.n === 1
+      ? `Excludes 1 open-ended installment (${v.amount} a month) — it continues after this date.`
+      : `Excludes ${v.n} open-ended installments (${v.amount} a month) — they continue after this date.`),
+    'dash.freeOpenOnly': "All your installments are open-ended, so there's no end date to count down to.",
+    'dash.freeOpenCta': "Set what's left",
     'dash.last': 'last one {month}',
     'dash.paidChip': 'Paid ✓',
     'dash.emptyTitle': 'No installments yet',
@@ -313,7 +326,8 @@ function renderSummary(st, s) {
   const paid = C.paidKeys(st.payments);
   const cur = C.monthKey(today());
   const dueNow = s.active.filter((i) => i.nextDue.slice(0, 7) === cur);
-  const leftNow = C.round3(dueNow.filter((i) => !paid.has(`${i.id}|${cur}`)).reduce((a, i) => a + i.monthly, 0));
+  // the amount really due next (a partial final payment counts as itself, not as a full monthly)
+  const leftNow = C.round3(dueNow.filter((i) => !paid.has(`${i.id}|${cur}`)).reduce((a, i) => a + (i.nextAmount ?? i.monthly), 0));
 
   const tile = (key, label, value, icon, cls = '', sub = '') => `
     <div class="stat tilt${cls}">
@@ -354,7 +368,7 @@ function renderSummary(st, s) {
       ${tile('monthly', t('dash.monthly'), s.monthlyTotal, ICO.wallet, ' feature', esc(t('dash.activeCount', { count: fmt.count(s.active.length), n: fmt.num(s.active.length) })))}
       ${tile('free', t('dash.free'), s.freeAfter, ICO.leaf, s.freeAfter != null && s.freeAfter < 0 ? ' tone-over' : '')}
       ${tile('left', t('dash.left'), leftNow, ICO.calendar, '', dueNow.length && !leftNow ? esc(t('dash.leftDone')) : '')}
-      ${tile('debt', t('dash.debt'), s.totalDebt, ICO.stack)}
+      ${tile('debt', t('dash.debt'), s.totalDebt, ICO.stack, '', s.openCount > 0 ? esc(t('dash.debtOpen', { n: s.openCount })) : '')}
     </div>`;
 
   fx.setRing(body.querySelector('.ring-fill'), s.ratio ?? 0, shown.ratio);
@@ -376,43 +390,24 @@ function renderSummary(st, s) {
   });
 }
 
-function freedom(installments, day) {
-  let total = 0;
-  let paidAmt = 0;
-  let last = null;
-  let left = 0;
-  for (const inst of installments) {
-    const stt = C.installmentStatus(inst, day);
-    const count = Number(inst.remaining_count) || 0;
-    const m = Number(inst.monthly_amount) || 0;
-    total += m * count;
-    paidAmt += m * (count - stt.remaining);
-    if (stt.active) {
-      left += stt.remaining;
-      if (!last || stt.lastDue > last) last = stt.lastDue;
-    }
-  }
-  return {
-    total: C.round3(total),
-    paid: C.round3(paidAmt),
-    pct: total > 0 ? (paidAmt / total) * 100 : 0,
-    last,
-    left,
-    monthsLeft: last ? C.monthsBetween(C.monthKey(day), C.monthKey(last)) : 0,
-  };
-}
-
 function renderFreedom(st) {
   const box = $('#free-body');
   box.classList.remove('skel-stack');
-  const f = freedom(st.installments, today());
+  const f = debtFreeCountdown(st.installments, today());
   if (!st.installments.length) {
     box.innerHTML = `<p class="free-empty">${esc(t('dash.freeEmpty'))}</p>
       <a class="btn btn-gold btn-sm" href="/installments?add=1">${esc(t('dash.emptyCta'))}</a>`;
     shown.freePct = 0;
     return;
   }
-  if (!f.last) {
+  if (f.activeCount === 0 && f.openCount > 0) {
+    // only open-ended plans left: there is no month to count down to
+    box.innerHTML = `<p class="free-empty">${esc(t('dash.freeOpenOnly'))}</p>
+      <a class="btn btn-glass btn-sm" href="/installments">${esc(t('dash.freeOpenCta'))}</a>`;
+    shown.freePct = 0;
+    return;
+  }
+  if (f.activeCount === 0 || !f.last) {
     box.innerHTML = `<p class="free-big"><strong class="gold-text">${esc(t('dash.freeDone'))}</strong></p>
       <p class="free-sub">${esc(t('dash.freeDoneSub'))}</p>
       <a class="btn btn-glass btn-sm" href="/check">${esc(t('dash.check'))}</a>`;
@@ -432,7 +427,8 @@ function renderFreedom(st) {
         <span>${th('dash.freePaid', { pct: `<b class="num" data-free-pct>${esc(fmt.pct(pct))}</b>` })}</span>
         <span class="free-of">${th('dash.freeOf', { paid: num(fmt.money(f.paid)), total: num(fmt.money(f.total)) })}</span>
       </div>
-    </div>`;
+    </div>
+    ${f.openCount > 0 ? `<p class="free-note">${esc(t('dash.freeOpenNote', { count: fmt.count(f.openCount), n: f.openCount, amount: fmt.money(f.openMonthly) }))}</p>` : ''}`;
   fx.setWidth(box.querySelector('.meter > i'), pct);
   fx.countUp(box.querySelector('[data-free-pct]'), shown.freePct, pct, fmt.pct);
   shown.freePct = pct;
@@ -467,11 +463,11 @@ function renderUpcoming(st, s) {
       <li class="item up-item${soon ? ' soon' : ''}${isPaid ? ' is-paid' : ''}">
         <span class="pv pv-${providerHue(i.provider)}" aria-hidden="true">${esc([...name.trim()][0] || '؟')}</span>
         <div class="item-main"><span class="prov" dir="auto">${esc(name)}</span><span class="title" dir="auto">${esc(i.title || t('common.noTitle'))}</span></div>
-        <div class="item-amt">${num(fmt.money(i.monthly))}</div>
+        <div class="item-amt">${num(fmt.money(i.nextAmount ?? i.monthly))}</div>
         <div class="item-meta">
           <span class="up-date">${num(fmt.day(i.nextDue))} · <b>${esc(fmt.daysLeft(i.daysLeft))}</b></span>
           ${isPaid ? `<span class="chip chip-ok">${esc(t('dash.paidChip'))}</span>` : ''}
-          <span class="up-sub">${esc(t('dash.left2', { count: fmt.count(i.remaining) }))} · ${esc(t('dash.last', { month: fmt.month(i.lastDue) }))}</span>
+          <span class="up-sub">${esc(fmt.left(i))}${i.open ? '' : ` · ${esc(t('dash.last', { month: fmt.month(i.lastDue) }))}`}</span>
         </div>
       </li>`;
   }).join('');
@@ -773,6 +769,7 @@ bindPage();
 renderKicker();
 
 await initPage({ active: 'app', requireAuth: true, title: 'dash.doc' });
+remindDues(store); // installment reminders (switched on in /account)
 if (!store.loaded) {
   loadFailed = true;
   render();

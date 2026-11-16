@@ -199,3 +199,120 @@ test('memorydb: filters, sort, limit, update operators and counts', async () => 
   assert.throws(() => c.find({ $where: 'x' }), /unsupported/);
   await assert.rejects(c.updateOne({ _id: 'x' }, { $push: { a: 1 } }, { upsert: true }), /unsupported update/);
 });
+
+// ---------- «كم باقي؟» is optional: remaining modes count / amount / open ----------
+
+import { planTotal } from '../public/calc.js';
+
+const pick = (i) => [i.remaining_mode, i.remaining_count, i.last_amount];
+const BASE = { provider: 'تابي', title: 'لابتوب', monthly: 25, dueDay: 25, firstDue: '2026-11-25' };
+
+test('modes: amount is split on the server, switching modes never leaves stale fields, old input = count', async () => {
+  const store = createStore(createMemoryDb(), { now });
+  // amount: the client-sent count (99) is ignored, the server derives 7 payments, the last 12.5
+  let s = await store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: '162.5', remaining: 99 });
+  const id = s.installments[0].id;
+  assert.deepEqual(pick(s.installments[0]), ['amount', 7, 12.5]);
+  s = await store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: 150 });
+  assert.deepEqual(pick(s.installments[1]), ['amount', 6, null], 'an even split has no partial final payment');
+  s = await store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: '١٦٢٫٥' });
+  assert.deepEqual(pick(s.installments[2]), ['amount', 7, 12.5], 'Arabic digits');
+
+  s = await store.update(TOKEN, id, { ...BASE, remainingMode: 'count', remaining: 4 });
+  assert.deepEqual(pick(s.installments[0]), ['count', 4, null]);
+  s = await store.update(TOKEN, id, { ...BASE, remainingMode: 'amount', amountLeft: 30 });
+  assert.deepEqual(pick(s.installments[0]), ['amount', 2, 5]);
+  s = await store.update(TOKEN, id, { ...BASE, remainingMode: 'open', remaining: 5, amountLeft: 100 });
+  assert.deepEqual(pick(s.installments[0]), ['open', null, null], 'open ignores remaining and amountLeft');
+  s = await store.update(TOKEN, id, { ...BASE, remainingMode: null, remaining: 3 });
+  assert.deepEqual(pick(s.installments[0]), ['count', 3, null], 'null mode = count');
+
+  s = await store.add(TOKEN, { ...BASE, remaining: 5 });
+  assert.deepEqual(pick(s.installments[3]), ['count', 5, null], 'old-style input (no remainingMode) = count');
+});
+
+test('modes: old documents (no new fields) and unknown modes read as count', async () => {
+  const db = createMemoryDb();
+  const store = createStore(db, { now });
+  const doc = { token: TOKEN, provider: 'تمارا', title: '', monthlyAmount: 30, dueDay: 5, firstDueDate: '2026-12-05', createdAt: new Date() };
+  await db.collection('installments').insertOne({ _id: '00000000-0000-4000-8000-000000000001', ...doc, remainingCount: 6 });
+  await db.collection('installments').insertOne({ _id: '00000000-0000-4000-8000-000000000002', ...doc, remainingCount: 2, remainingMode: 'weird', lastAmount: 'x' });
+  await db.collection('installments').insertOne({ _id: '00000000-0000-4000-8000-000000000003', ...doc, remainingCount: 3, remainingMode: 'amount', lastAmount: 0 });
+  const s = await store.state(TOKEN);
+  assert.deepEqual(s.installments.map(pick), [['count', 6, null], ['count', 2, null], ['amount', 3, null]]);
+  assert.deepEqual(Object.keys(s.installments[0]).sort(), [
+    'created_at', 'due_day', 'first_due_date', 'id', 'last_amount', 'monthly_amount', 'provider', 'remaining_count', 'remaining_mode', 'title',
+  ]);
+});
+
+test('modes: an old client (no remainingMode) editing an amount plan turns it into a count plan', async () => {
+  const store = createStore(createMemoryDb(), { now });
+  let s = await store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: 162.5 });
+  const id = s.installments[0].id;
+  s = await store.update(TOKEN, id, { ...BASE, remaining: 3 });
+  assert.deepEqual(pick(s.installments[0]), ['count', 3, null]);
+  s = await store.update(TOKEN, id, { ...BASE, remainingMode: 'open' });
+  // an old tab editing an open plan sends remaining 0 (from remaining_count null) → refused, nothing changes
+  await assert.rejects(store.update(TOKEN, id, { ...BASE, remaining: 0 }), /invalid remaining/);
+  assert.deepEqual(pick((await store.state(TOKEN)).installments[0]), ['open', null, null]);
+});
+
+test('modes: validation errors for every mode', async () => {
+  const store = createStore(createMemoryDb(), { now });
+  for (const mode of ['x', '', {}, 5, ['count']]) {
+    await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: mode, remaining: 3 }), /invalid remainingMode/, JSON.stringify(mode));
+  }
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: 0 }), /invalid amountLeft/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: '9000.001' }), /invalid amountLeft/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: 'abc' }), /invalid amountLeft/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'amount' }), /invalid input/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: { $gt: 0 } }), /invalid input/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: null, remaining: 3 }), /invalid input/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'count', remaining: 0 }), /invalid remaining/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remainingMode: 'count' }), /invalid input/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, remaining: { $gt: 0 } }), /invalid input/);
+  // the type checks come first, then the mode
+  await assert.rejects(store.add(TOKEN, { ...BASE, monthly: { $gt: 0 }, remainingMode: 'x' }), /invalid input/);
+  await assert.rejects(store.add(TOKEN, { ...BASE, monthly: 0, remainingMode: 'amount', amountLeft: 100 }), /invalid monthly/);
+  const s = await store.add(TOKEN, { ...BASE, remainingMode: 'open' });
+  assert.deepEqual(pick(s.installments[0]), ['open', null, null], 'open needs no remaining at all');
+  assert.equal(s.installments.length, 1, 'nothing else was saved');
+});
+
+test('modes: editing an amount plan unchanged keeps its schedule (first due + plan total resent)', async () => {
+  let t = Date.UTC(2026, 10, 15, 9, 0, 0);
+  const store = createStore(createMemoryDb(), { now: () => new Date((t += 1)) });
+  let s = await store.add(TOKEN, { ...BASE, remainingMode: 'amount', amountLeft: 162.5, firstDue: '2026-11-25' });
+  const before = s.installments[0];
+  t += 40 * 24 * 60 * 60 * 1000; // 40 days later: the stored first due date is now in the past
+  s = await store.update(TOKEN, before.id, { ...BASE, remainingMode: 'amount', amountLeft: planTotal(before), firstDue: before.first_due_date });
+  const after = s.installments[0];
+  assert.deepEqual([after.first_due_date, after.remaining_count, after.last_amount], ['2026-11-25', 7, 12.5]);
+  // an open plan keeps its first due date the same way
+  s = await store.update(TOKEN, before.id, { ...BASE, remainingMode: 'open', firstDue: before.first_due_date });
+  assert.deepEqual(pick(s.installments[0]), ['open', null, null]);
+  assert.equal(s.installments[0].first_due_date, '2026-11-25');
+});
+
+test('handleRpc: p_remaining_mode / p_amount_left reach the store', async () => {
+  const db = createMemoryDb();
+  const store = createStore(db, { now });
+  const auth = createAuth(db, { now, scryptCost: 1024 });
+  let session;
+  await handleRpc({ fn: 'auth_signup', args: { email: 'modes@x.com', password: 'password-ok' } },
+    { store, auth, setSession: (tok) => { session = tok; } });
+  const ctx = { store, auth, sessionToken: session };
+  const args = { p_provider: 'تابي', p_title: '', p_monthly: '25', p_due_day: 25, p_first_due: '2026-11-25' };
+  let s = await handleRpc({ fn: 'aqsati_add', args: { ...args, p_remaining_mode: 'amount', p_amount_left: '162.500', p_remaining: null } }, ctx);
+  assert.deepEqual(pick(s.installments[0]), ['amount', 7, 12.5]);
+  s = await handleRpc({ fn: 'aqsati_add', args: { ...args, p_remaining_mode: 'open' } }, ctx);
+  assert.deepEqual(pick(s.installments[1]), ['open', null, null]);
+  s = await handleRpc({ fn: 'aqsati_add', args: { ...args, p_remaining: 4 } }, ctx);
+  assert.deepEqual(pick(s.installments[2]), ['count', 4, null], 'old clients send only p_remaining');
+  s = await handleRpc({ fn: 'aqsati_update', args: { ...args, p_id: s.installments[0].id, p_remaining_mode: 'count', p_remaining: 2, p_amount_left: 999 } }, ctx);
+  assert.deepEqual(pick(s.installments[0]), ['count', 2, null]);
+  await assert.rejects(handleRpc({ fn: 'aqsati_add', args: { ...args, p_remaining_mode: 'bogus', p_remaining: 3 } }, ctx),
+    { message: 'invalid remainingMode', status: 400 });
+  await assert.rejects(handleRpc({ fn: 'aqsati_add', args: { ...args, p_remaining_mode: 'amount', p_amount_left: '0' } }, ctx),
+    { message: 'invalid amountLeft', status: 400 });
+});

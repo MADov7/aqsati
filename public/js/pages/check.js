@@ -72,6 +72,7 @@ registerStrings({
     'wi.early': 'لو خلّصت قسط بدري',
     'wi.earlyItem': '{amount} بالشهر · تحتاج {payoff} عشان تخلصه',
     'wi.earlyNone': 'ما عندك أقساط نشطة.',
+    'wi.openNote': 'الأقساط المفتوحة ({n}) محسوبة بالشهر، وما تقدر تخلصها بدري هني لأنها بدون نهاية.',
     'wi.purchase': 'مع الشراء الي فحصته ({amount} بالشهر)',
     'wi.ofSalary': 'من الراتب',
     'wi.kvSalary': 'الراتب',
@@ -150,6 +151,7 @@ registerStrings({
     'wi.early': 'If you pay one off early',
     'wi.earlyItem': '{amount} a month · {payoff} to pay it off',
     'wi.earlyNone': 'You have no active installments.',
+    'wi.openNote': "Open-ended installments ({n}) count every month; they can't be paid off early here because they have no end.",
     'wi.purchase': 'Include the purchase you checked ({amount} a month)',
     'wi.ofSalary': 'of salary',
     'wi.kvSalary': 'Salary',
@@ -432,8 +434,10 @@ function renderWhatif() {
     return;
   }
   const s = current(st);
-  for (const id of [...wi.early]) if (!s.active.some((i) => i.id === id)) wi.early.delete(id);
-  const key = `${getLang()}|${s.active.map((i) => `${i.id}:${i.monthly}:${i.remaining}`).join(',')}|${check.result ? check.result.newMonthly : ''}|${salary}`;
+  // a ticked plan that is gone — or is now open-ended (it can't be paid off early) — leaves the «early» set
+  for (const id of [...wi.early]) if (!s.active.some((i) => i.id === id && !i.open)) wi.early.delete(id);
+  const finite = s.active.filter((i) => !i.open);
+  const key = `${getLang()}|${s.active.map((i) => `${i.id}:${i.monthly}:${i.remaining}:${i.open ? 'o' : ''}`).join(',')}|${s.openCount}|${check.result ? check.result.newMonthly : ''}|${salary}`;
   if (key !== wi.key) {
     wi.key = key;
     const active = document.activeElement;
@@ -453,14 +457,15 @@ function renderWhatif() {
           </div>
           <fieldset class="wi-block wi-early">
             <legend class="field-label">${esc(t('wi.early'))}</legend>
-            ${s.active.length ? s.active.map((i) => `
+            ${finite.length ? finite.map((i) => `
               <label class="switch wi-switch">
                 <input type="checkbox" role="switch" data-early="${esc(i.id)}" data-fk="early:${esc(i.id)}"${wi.early.has(i.id) ? ' checked' : ''}>
                 <span class="wi-sw-text">
                   <b>${esc(fmt.provider(i.provider))}${i.title ? ` · <bdi dir="auto">${esc(i.title)}</bdi>` : ''}</b>
                   <small>${t('wi.earlyItem', { amount: num(fmt.money(i.monthly)), payoff: num(fmt.money(i.remainingTotal)) })}</small>
                 </span>
-              </label>`).join('') : `<p class="hint">${esc(t('wi.earlyNone'))}</p>`}
+              </label>`).join('') : s.openCount > 0 ? '' : `<p class="hint">${esc(t('wi.earlyNone'))}</p>`}
+            ${s.openCount > 0 ? `<p class="hint wi-open-note">${esc(t('wi.openNote', { n: s.openCount }))}</p>` : ''}
           </fieldset>
           ${check.result ? `
           <div class="wi-block">
@@ -504,10 +509,11 @@ function updateWhatif(announce = true) {
   const limit = limitOf(st);
   const s = current(st);
   const simSalary = C.round3(salary * (1 + wi.pct / 100));
-  const kept = s.active.filter((i) => !wi.early.has(i.id));
+  // open-ended plans always stay (they count every month); only finite ones can be paid off early
+  const kept = s.active.filter((i) => i.open || !wi.early.has(i.id));
   const purchase = wi.purchase && check.result ? check.result.newMonthly : 0;
   const monthly = C.round3(kept.reduce((a, i) => a + i.monthly, 0) + purchase);
-  const payoff = C.round3(s.active.filter((i) => wi.early.has(i.id)).reduce((a, i) => a + i.remainingTotal, 0));
+  const payoff = C.round3(s.active.filter((i) => !i.open && wi.early.has(i.id)).reduce((a, i) => a + (i.remainingTotal || 0), 0));
   const ratio = simSalary > 0 ? (monthly / simSalary) * 100 : 0;
   const level = C.levelFor(ratio, limit);
   const free = C.round3(simSalary - monthly);

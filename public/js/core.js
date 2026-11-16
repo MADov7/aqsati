@@ -204,17 +204,24 @@ export function saveProfile({ salary, safeLimit, salaryDay } = {}) {
 
 function installmentArgs(input = {}) {
   const dueDay = Number(input.dueDay ?? input.due_day);
+  const mode = input.remainingMode ?? 'count';
   return {
     p_provider: input.provider,
     p_title: input.title ?? '',
     p_monthly: input.monthly,
     p_due_day: dueDay,
-    p_remaining: input.remaining,
+    p_remaining_mode: mode,
+    // only the field the chosen mode needs; the server derives count + last payment itself in 'amount' mode
+    p_remaining: mode === 'count' ? input.remaining : null,
+    p_amount_left: mode === 'amount' ? input.amountLeft : null,
     p_first_due: input.firstDue || C.firstDueDate(dueDay, C.todayISO()),
   };
 }
 
-/** input = { provider, title, monthly, dueDay, remaining } (validate with calc.validateInstallmentInput first). */
+/**
+ * input = { provider, title, monthly, dueDay, remainingMode, remaining, amountLeft, firstDue? }
+ * (validate with calc.validateInstallmentInput first). remainingMode: 'count' (default) | 'amount' | 'open'.
+ */
 export const addInstallment = (input) => mutate('aqsati_add', installmentArgs(input));
 export const updateInstallment = (id, input) => mutate('aqsati_update', { p_id: id, ...installmentArgs(input) });
 export const removeInstallment = (id) => mutate('aqsati_remove', { p_id: id });
@@ -301,6 +308,21 @@ export const fmt = {
   },
   /** provider name in the current language (stored names are Arabic) */
   provider: (name) => (en() ? PROVIDER_EN[name] || String(name ?? '') : String(name ?? '')),
+  /**
+   * What is left on one plan, in all three modes (s = an installmentStatus result or a monthSummary item).
+   * Plain text — wrap it in esc() before innerHTML.
+   *   count «باقي 3 أقساط» · amount «باقي 136.500 د.ك — 3 أقساط، آخرها 45.500 د.ك» · open «مفتوح — بدون تاريخ نهاية»
+   */
+  left: (s) => {
+    if (s?.open) return t('rem.open');
+    if (s?.mode === 'amount') {
+      const vars = { amount: fmt.money(s.remainingTotal), count: fmt.count(s.remaining) };
+      return s.remaining >= 2 && Number(s.lastAmount) < Number(s.monthly)
+        ? t('rem.amountLast', { ...vars, last: fmt.money(s.lastAmount) })
+        : t('rem.amount', vars);
+    }
+    return t('rem.count', { count: fmt.count(s?.remaining) });
+  },
 };
 
 // ---------- theme ----------

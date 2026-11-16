@@ -5,7 +5,7 @@
 import { initPage, store, t, registerStrings, getLang, isRTL, fmt, esc, ICONS, fx, toast, showBanner, errorText } from '../core.js';
 import * as C from '../../calc.js';
 import { timeline, remainingSummary, byProvider, providerColor } from '../logic/schedule.js';
-import { simulatePlan } from '../logic/payoff.js';
+import { simulatePlan, openEndedDebts } from '../logic/payoff.js';
 import { columnChart, rowChart, donutChart, bindTips, onWidth } from '../logic/charts.js';
 
 const monthsAr = (n) => (n === 1 ? 'شهر واحد' : n === 2 ? 'شهرين' : n <= 10 ? `${n} شهور` : `${n} شهر`);
@@ -86,6 +86,14 @@ registerStrings({
     'ins.plEarly': 'قبل بـ {months}',
     'ins.plOnTime': 'بموعده',
     'ins.plInstead': 'بدل {date}',
+    'ins.kFreeOpen': 'بدون نهاية',
+    'ins.kFreeOpenSub': 'كل أقساطك مفتوحة',
+    // agreement: قسط واحد مفتوح · قسطين مفتوحين · 3 أقساط مفتوحة
+    'ins.openExcluded': (v) => `ما يشمل ${C.fmtCount(v.n)} ${v.n === 1 ? 'مفتوح' : v.n === 2 ? 'مفتوحين' : 'مفتوحة'}`,
+    'ins.plOpenOnly': 'خطة السداد تحتاج أقساط لها نهاية. أقساطك الحالية كلها مفتوحة — حدّد كم باقي عليها من «أقساطي».',
+    'ins.plOpenTitle': 'برا الخطة: أقساط مفتوحة',
+    'ins.plOpenItem': '{monthly} بالشهر — بدون نهاية',
+    'ins.dnDebtOpenOnly': 'ما عليك دين له نهاية — كل أقساطك مفتوحة. بدّل لـ«بالشهر» تشوف توزيعها.',
     'ins.emptyTitle': 'ما فيه شي نحلله للحين',
     'ins.emptyDesc': 'أضف أقساطك وبنرسم لك متى بتخف، مين ياخذ أكثر من راتبك، وخطة تخلصك منها أسرع.',
     'ins.doneTitle': 'خلصت كل أقساطك!',
@@ -168,6 +176,13 @@ registerStrings({
     'ins.plEarly': '{months} early',
     'ins.plOnTime': 'On schedule',
     'ins.plInstead': 'instead of {date}',
+    'ins.kFreeOpen': 'No end date',
+    'ins.kFreeOpenSub': 'All your installments are open-ended',
+    'ins.openExcluded': (v) => `excludes ${v.n === 1 ? '1 open-ended installment' : `${v.n} open-ended installments`}`,
+    'ins.plOpenOnly': "The payoff plan needs installments with an end. All of yours are open-ended — set what's left on the Installments page.",
+    'ins.plOpenTitle': 'Not in the plan: open-ended',
+    'ins.plOpenItem': '{monthly} a month — no end date',
+    'ins.dnDebtOpenOnly': 'No debt with an end date — all your installments are open-ended. Switch to “Monthly” to see how they split.',
     'ins.emptyTitle': 'Nothing to analyse yet',
     'ins.emptyDesc': 'Add your installments and we will chart when they get lighter, who takes most of your salary and a plan to finish sooner.',
     'ins.doneTitle': 'All installments paid off!',
@@ -244,7 +259,8 @@ function render() {
   const today = C.todayISO();
   const sum = remainingSummary(st.installments, today);
   const toPlan = document.getElementById('to-plan');
-  if (toPlan) toPlan.hidden = !sum.activeCount;
+  // the payoff plan needs at least one installment with an end
+  if (toPlan) toPlan.hidden = !sum.finiteCount;
   if (!sum.activeCount) {
     el.innerHTML = emptyHTML(st.installments.length > 0);
     return;
@@ -286,24 +302,33 @@ function render() {
 function kpisHTML(sum, salary, safe) {
   const ratio = salary > 0 ? (sum.monthly / salary) * 100 : null;
   const level = C.levelFor(ratio, safe);
+  // open-ended plans have no debt and no end: say they are left out (never «على 0 أقساط»)
+  const openNote = sum.openCount > 0 ? ` · ${t('ins.openExcluded', { n: sum.openCount })}` : '';
+  const alone = t('ins.openExcluded', { n: sum.openCount });
+  const debtSub = sum.finiteCount === 0
+    ? alone.charAt(0).toUpperCase() + alone.slice(1)
+    : t('ins.kDebtSub', { count: fmt.count(sum.finiteCount) }) + openNote;
   return `
     <section class="stats four ins-kpis" aria-label="${esc(t('ins.kicker'))}">
       <div class="stat feature tilt">
         <span class="stat-ico" aria-hidden="true">${IC.wallet}</span>
         <span class="stat-label">${esc(t('ins.kDebt'))}</span>
         <strong class="stat-value num" data-count="${sum.totalDebt}">${esc(fmt.money(sum.totalDebt))}</strong>
-        <span class="stat-sub">${esc(t('ins.kDebtSub', { count: fmt.count(sum.activeCount) }))}</span>
+        <span class="stat-sub">${esc(debtSub)}</span>
       </div>
       <div class="stat tilt">
         <span class="stat-ico" aria-hidden="true">${IC.flag}</span>
         <span class="stat-label">${esc(t('ins.kFree'))}</span>
-        <strong class="stat-value">${esc(fmt.date(sum.debtFreeDate))}</strong>
-        <span class="stat-sub">${esc(t('ins.kFreeSub', { provider: fmt.provider(sum.lastInstallment?.provider) }))}</span>
+        ${sum.debtFreeDate
+    ? `<strong class="stat-value">${esc(fmt.date(sum.debtFreeDate))}</strong>
+        <span class="stat-sub">${esc(t('ins.kFreeSub', { provider: fmt.provider(sum.lastInstallment?.provider) }) + openNote)}</span>`
+    : `<strong class="stat-value">${esc(t('ins.kFreeOpen'))}</strong>
+        <span class="stat-sub">${esc(t('ins.kFreeOpenSub'))}</span>`}
       </div>
       <div class="stat tilt">
         <span class="stat-ico" aria-hidden="true">${IC.clock}</span>
         <span class="stat-label">${esc(t('ins.kLeft'))}</span>
-        <strong class="stat-value">${esc(months(sum.monthsLeft))}</strong>
+        <strong class="stat-value">${esc(sum.debtFreeDate ? months(sum.monthsLeft) : '—')}</strong>
         <span class="stat-sub">${esc(t('ins.kLeftSub'))}</span>
       </div>
       <div class="stat tilt${ratio === null ? '' : ` tone-${level}`}">
@@ -467,7 +492,14 @@ function drawDonut() {
       <span class="dn-amt num">${esc(fmt.money(g.value))}</span>
     </li>`).join('');
   const top = groups[0];
-  el.querySelector('#dn-summary').textContent = top ? t('ins.dnSummary', { provider: fmt.provider(top.provider), pct: pctText(top), amount: fmt.money(top.value) }) : '';
+  let summary = top ? t('ins.dnSummary', { provider: fmt.provider(top.provider), pct: pctText(top), amount: fmt.money(top.value) }) : '';
+  if (prefs.measure === 'debt') {
+    // open-ended plans have no debt, so they are not in this ring
+    const openCount = remainingSummary(store.state.installments, C.todayISO()).openCount;
+    if (!groups.length && openCount > 0) summary = t('ins.dnDebtOpenOnly');
+    else if (openCount > 0) summary += ` · ${t('ins.openExcluded', { n: openCount })}`;
+  }
+  el.querySelector('#dn-summary').textContent = summary;
   el.querySelector('#dn-table').innerHTML = `
     <table class="table">
       <caption class="sr-only">${esc(t('ins.dnTitle'))}</caption>
@@ -506,8 +538,9 @@ function planHTML() {
         </div>
         <div class="plan-result" id="plan-result" aria-live="polite"></div>
       </div>
-      <h3 class="plan-order-title">${esc(t('ins.plOrder'))}</h3>
+      <h3 class="plan-order-title" id="plan-order-title">${esc(t('ins.plOrder'))}</h3>
       <ol class="plan-list" id="plan-list"></ol>
+      <div id="plan-open"></div>
     </section>`;
 }
 
@@ -526,7 +559,20 @@ function drawPlan() {
   const result = el?.querySelector('#plan-result');
   if (!result) return;
   const plan = simulatePlan(store.state.installments, { today: C.todayISO(), extra: prefs.extra, strategy: prefs.strategy, rollover: prefs.rollover });
-  if (!plan) return;
+  const openList = plan ? plan.openEnded || [] : openEndedDebts(store.state.installments, C.todayISO());
+  el.querySelector('#plan-open').innerHTML = openList.length ? `
+    <h3 class="plan-order-title">${esc(t('ins.plOpenTitle'))}</h3>
+    <ul class="plan-list plan-open">${openList.map((d) => `
+      <li class="plan-item">
+        <span class="due-dot c-${providerColor(d.provider)}" aria-hidden="true"></span>
+        <div class="plan-main">
+          <p class="plan-line"><b>${esc(fmt.provider(d.provider))}</b>${d.title ? `<span class="plan-title" dir="auto">${esc(d.title)}</span>` : ''}</p>
+          <p class="plan-meta">${esc(t('ins.plOpenItem', { monthly: fmt.money(d.monthly) }))}</p>
+        </div>
+      </li>`).join('')}</ul>` : '';
+  // no finite debt: nothing to plan (only open-ended plans) ⇒ say so and switch the controls off
+  el.querySelectorAll('.plan-controls input').forEach((i) => { i.disabled = !plan; });
+  el.querySelector('#plan-order-title').hidden = !plan;
   el.querySelector('#strat-hint').textContent = t(prefs.strategy === 'impact' ? 'ins.plImpactHint' : 'ins.plReliefHint');
   const range = el.querySelector('#plan-extra');
   const out = el.querySelector('#plan-extra-out');
@@ -534,6 +580,11 @@ function drawPlan() {
   range.setAttribute('aria-valuetext', fmt.money(prefs.extra));
   const pct = (prefs.extra / 200) * 100;
   range.style.setProperty('--fill', `${pct}%`);
+  if (!plan) {
+    el.querySelector('#plan-list').innerHTML = '';
+    if (openList.length) result.innerHTML = `<p class="plan-open-only">${esc(t('ins.plOpenOnly'))}</p>`;
+    return;
+  }
 
   const saved = plan.monthsSaved;
   let note = '';

@@ -55,11 +55,11 @@ test('installmentRows: header + one row per installment, oldest first, with paid
     status: { active: 'Active', done: 'Finished' },
   });
   assert.equal(rows.length, 3);
-  assert.equal(rows[0].length, 12);
+  assert.equal(rows[0].length, 14); // «Entered as» + «Last payment» appended (old positions unchanged)
   // the bank loan was created first; its 2 payments (Aug 28, Sep 28) have both passed → finished
-  assert.deepEqual(rows[1], ['Bank loan', '=cmd', '180.000', 28, '2026-08-28', '2026-09-28', 2, 0, '0.000', 'Finished', '', 0]);
+  assert.deepEqual(rows[1], ['Bank loan', '=cmd', '180.000', 28, '2026-08-28', '2026-09-28', 2, 0, '0.000', 'Finished', '', 0, 'Payments left', '180.000']);
   // Tamara: Oct 5 and Nov 5 passed → 2 of 4 left (Dec 5, Jan 5)
-  assert.deepEqual(rows[2], ['Tamara', 'جوال', '45.500', 5, '2026-10-05', '2027-01-05', 4, 2, '91.000', 'Active', '2026-10 ; 2026-11', 2]);
+  assert.deepEqual(rows[2], ['Tamara', 'جوال', '45.500', 5, '2026-10-05', '2027-01-05', 4, 2, '91.000', 'Active', '2026-10 ; 2026-11', 2, 'Payments left', '45.500']);
   // and the formula guard applies once written
   assert.ok(toCSV(rows).includes(",'=cmd,"));
 });
@@ -72,4 +72,24 @@ test('installmentRows works on an empty state and with custom headers', () => {
 test('exportFilename uses the date', () => {
   assert.equal(exportFilename('2026-11-15'), 'aqsati-2026-11-15.csv');
   assert.equal(exportFilename('nope'), 'aqsati-export.csv');
+});
+
+test('installmentRows: amount and open-ended rows (14 columns, open-ended leaves the end columns empty)', () => {
+  const PART = { id: 'P', provider: 'تابي', title: 'لابتوب', monthly_amount: 25, due_day: 25, remaining_count: 7, remaining_mode: 'amount', last_amount: 12.5, first_due_date: '2026-11-25', created_at: '2026-11-01T10:00:00Z' };
+  const OPEN = { id: 'O', provider: 'بطاقة ائتمانية', title: '', monthly_amount: 40, due_day: 10, remaining_count: null, remaining_mode: 'open', last_amount: null, first_due_date: '2026-09-10', created_at: '2026-11-02T10:00:00Z' };
+  const state = { installments: [PART, OPEN], payments: [{ installment_id: 'O', month: '2026-10' }] };
+  const rows = installmentRows(state, '2026-11-15');
+  assert.equal(rows[0].length, 14);
+  assert.deepEqual(rows[0].slice(12), ['Entered as', 'Last payment (KWD)']);
+  assert.deepEqual(rows[1], ['تابي', 'لابتوب', '25.000', 25, '2026-11-25', '2027-05-25', 7, 7, '162.500', 'Active', '', 0, 'Amount left', '12.500']);
+  assert.deepEqual(rows[2], ['بطاقة ائتمانية', '', '40.000', 10, '2026-09-10', '', '', '', '', 'Open-ended', '2026-10', 1, 'Open-ended', '']);
+  assert.ok(rows.every((r) => r.length === 14));
+  // translated labels merge over the defaults (a partial status object keeps the missing labels)
+  const ar = installmentRows(state, '2026-11-15', {
+    status: { active: 'نشط', done: 'خالص' },
+    modes: { amount: 'المبلغ الباقي', open: 'بدون نهاية' },
+  });
+  assert.deepEqual([ar[1][9], ar[1][12], ar[2][9], ar[2][12]], ['نشط', 'المبلغ الباقي', 'Open-ended', 'بدون نهاية']);
+  const ar2 = installmentRows({ installments: [{ ...PART, remaining_mode: undefined, last_amount: undefined }], payments: [] }, '2026-11-15', { modes: { count: 'عدد الأقساط' } });
+  assert.deepEqual(ar2[1].slice(6), [7, 7, '175.000', 'Active', '', 0, 'عدد الأقساط', '25.000']);
 });

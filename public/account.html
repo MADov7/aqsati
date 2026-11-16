@@ -83,6 +83,7 @@
               <li><a href="#sec-salary"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.salaryTitle">الراتب والحد الآمن</span></a></li>
               <li><a href="#sec-appearance"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.appearanceTitle">المظهر</span></a></li>
               <li><a href="#sec-language"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.languageTitle">اللغة</span></a></li>
+              <li><a href="#sec-notify"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="ntf.title">التنبيهات</span></a></li>
               <li><a href="#sec-security"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.securityTitle">الأمان</span></a></li>
               <li><a href="#sec-data"><span class="nav-dot" aria-hidden="true"></span><span data-i18n="acc.dataTitle">بياناتك</span></a></li>
               <li id="nav-danger" hidden><a href="#sec-danger"><span class="nav-dot is-danger" aria-hidden="true"></span><span data-i18n="acc.dangerTitle">منطقة الخطر</span></a></li>
@@ -215,6 +216,38 @@
               </div>
             </section>
           </div>
+
+          <!-- installment reminders (public/js/logic/notify.js) -->
+          <section class="card acc-section" id="sec-notify" aria-labelledby="notify-title">
+            <div class="card-head">
+              <span class="card-ico gold" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 2.1H4.4z"/><path d="M10 20.6a2.1 2.1 0 0 0 4 0"/></svg></span>
+              <div>
+                <h2 id="notify-title" data-i18n="ntf.title">التنبيهات</h2>
+                <p class="hint" data-i18n="ntf.desc">نذكرك بالقسط قبل لا يجي موعده، عشان ما يفوتك ولا قسط.</p>
+              </div>
+            </div>
+            <div class="notify-body">
+              <label class="switch notify-switch">
+                <input type="checkbox" role="switch" id="notify-on" aria-describedby="notify-status">
+                <span data-i18n="ntf.switch">نبهني قبل موعد القسط</span>
+              </label>
+              <div class="notify-when" id="notify-when">
+                <p class="notify-when-label" id="notify-when-label" data-i18n="ntf.when">متى أذكرك؟</p>
+                <div class="seg notify-seg" role="radiogroup" aria-labelledby="notify-when-label">
+                  <label><input type="radio" name="notifyWhen" value="before"><span data-i18n="ntf.before">قبل بيوم</span></label>
+                  <label><input type="radio" name="notifyWhen" value="day"><span data-i18n="ntf.day">يوم القسط</span></label>
+                </div>
+              </div>
+              <div class="notify-status" id="notify-status" aria-live="polite"></div>
+              <p class="hint notify-honest" data-i18n="ntf.honest">التنبيه يوصلك لما تفتح أقساطي. وعلى الجوال، إذا ثبّت الموقع كتطبيق (Chrome على أندرويد)، يذكرك بالخلفية بعد حتى لو ما فتحته.</p>
+              <div class="notify-actions" id="notify-actions" hidden>
+                <button type="button" class="btn btn-ghost btn-sm" id="notify-test">
+                  <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 2.1H4.4z"/><path d="M10 20.6a2.1 2.1 0 0 0 4 0"/></svg>
+                  <span data-i18n="ntf.test">جرّب تنبيه الحين</span>
+                </button>
+              </div>
+            </div>
+          </section>
 
           <!-- security -->
           <section class="card acc-section" id="sec-security" aria-labelledby="security-title">

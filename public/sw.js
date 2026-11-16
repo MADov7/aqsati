@@ -10,7 +10,7 @@
 // Bump VERSION on every deploy that changes the shell; old caches are deleted on activate.
 // On localhost even icons and images are network first, so editing files never shows a stale copy.
 
-const VERSION = 'aqsati-v9-2026-11-16-dark-divider';
+const VERSION = 'aqsati-v10-2026-11-16-optional-remaining';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -215,4 +215,213 @@ self.addEventListener('fetch', (event) => {
   } else {
     event.respondWith(networkFirst(request, event));
   }
+});
+
+// ---------- installment reminders («نبهني قبل موعد القسط») ----------
+// periodicsync 'aqsati-dues' (installed PWA on Chrome / Android, ~every 12 h): load STATE with the session cookie and
+// show a notification for each installment due tomorrow (or today) that isn't marked paid — never the same one twice.
+// notificationclick: focus /installments (or open it).
+// Settings + dedupe keys come from the page's mirror in Cache Storage (the worker can't read localStorage).
+// A classic worker can't import modules, so the helpers below are a COPY of the pure part of
+// public/js/logic/notify.js — tests/notify.test.mjs runs both on the same fixtures and fails if they ever disagree.
+
+const NTF_TAG = 'aqsati-dues';
+const NTF_CACHE = 'aqsati_notify'; // not 'aqsati-…': activate never deletes it on a VERSION bump
+const NTF_URL = '/__aqsati_notify';
+const NTF_PAGE = '/installments';
+const NTF_MODES = ['before', 'day'];
+const NTF_SHOWN_RE = /^[^|]{1,100}\|\d{4}-\d{2}-\d{2}$/;
+const NTF_PROVIDER_EN = { 'تابي': 'Tabby', 'تمارا': 'Tamara', 'ديما': 'Deema', 'قرض بنك': 'Bank loan', 'بطاقة ائتمانية': 'Credit card', 'أخرى': 'Other' };
+const ntfMoney = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const ntfDayAr = new Intl.DateTimeFormat('ar-KW-u-nu-latn', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+const ntfDayEn = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+function ntfRound3(x) { return Math.round((x + Number.EPSILON) * 1000) / 1000; }
+function ntfIso(y, m, d) { return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
+function ntfParse(iso) { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return { y, m, d }; }
+function ntfAddDays(iso, n) {
+  const { y, m, d } = ntfParse(iso);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return ntfIso(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+}
+function ntfToday(now = new Date()) { return ntfIso(now.getFullYear(), now.getMonth() + 1, now.getDate()); }
+function ntfMonthsBetween(a, b) {
+  const [ay, am] = String(a).split('-').map(Number);
+  const [by, bm] = String(b).split('-').map(Number);
+  return (by * 12 + bm) - (ay * 12 + am);
+}
+function ntfNthDue(inst, k) {
+  const { y, m } = ntfParse(inst.first_due_date);
+  const t = y * 12 + (m - 1) + k;
+  const ty = Math.floor(t / 12);
+  const tm = (t % 12) + 1;
+  const dim = new Date(Date.UTC(ty, tm, 0)).getUTCDate();
+  return ntfIso(ty, tm, Math.min(Number(inst.due_day), dim));
+}
+function ntfOpen(inst) { return inst?.remaining_mode === 'open'; }
+function ntfCount(inst) { return ntfOpen(inst) ? Infinity : Math.max(0, Number(inst?.remaining_count) || 0); }
+function ntfAmount(inst, k) {
+  const m = ntfRound3(Number(inst?.monthly_amount) || 0);
+  if (ntfOpen(inst)) return m;
+  if (k === ntfCount(inst) - 1) {
+    const l = ntfRound3(Number(inst.last_amount));
+    if (l > 0 && l < m) return l;
+  }
+  return m;
+}
+function ntfPaymentOn(inst, date) {
+  const k = ntfMonthsBetween(String(inst.first_due_date).slice(0, 7), date.slice(0, 7));
+  if (!(k >= 0) || k >= ntfCount(inst)) return -1;
+  return ntfNthDue(inst, k) === date ? k : -1;
+}
+
+function ntfNormalize(raw) {
+  let v = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch { v = null; }
+  }
+  const o = v && typeof v === 'object' ? v : {};
+  return {
+    on: o.on === true,
+    mode: NTF_MODES.includes(o.mode) ? o.mode : 'before',
+    shown: Array.isArray(o.shown) ? o.shown.filter((k) => typeof k === 'string' && NTF_SHOWN_RE.test(k)).slice(-200) : [],
+  };
+}
+
+function ntfDues(state, today, mode) {
+  const m = NTF_MODES.includes(mode) ? mode : 'before';
+  const date = m === 'day' ? today : ntfAddDays(today, 1);
+  const month = date.slice(0, 7);
+  const paid = new Set((state?.payments || []).map((p) => `${p.installment_id}|${p.month}`));
+  const out = [];
+  for (const inst of Array.isArray(state?.installments) ? state.installments : []) {
+    if (!inst || typeof inst !== 'object' || inst.id == null || !inst.first_due_date) continue;
+    const k = ntfPaymentOn(inst, date);
+    if (k < 0 || paid.has(`${inst.id}|${month}`)) continue;
+    const open = ntfOpen(inst);
+    out.push({
+      id: String(inst.id),
+      key: `${inst.id}|${date}`,
+      date,
+      month,
+      k,
+      when: m === 'day' ? 'today' : 'tomorrow',
+      provider: String(inst.provider ?? ''),
+      title: String(inst.title ?? '').trim(),
+      amount: ntfAmount(inst, k),
+      open,
+      last: !open && k === ntfCount(inst) - 1,
+    });
+  }
+  return out.sort((a, b) => b.amount - a.amount || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+function ntfNotification(due, lang) {
+  const en = lang === 'en';
+  const today = due.when === 'today';
+  const day = ntfParse(due.date);
+  const asDate = new Date(Date.UTC(day.y, day.m - 1, day.d));
+  const money = ntfMoney.format(ntfRound3(due.amount));
+  let title;
+  let body;
+  if (en) {
+    const provider = NTF_PROVIDER_EN[due.provider] || due.provider;
+    title = `${provider} installment due ${today ? 'today' : 'tomorrow'}: KWD ${money} — don't forget`;
+    body = [due.title, `Due ${ntfDayEn.format(asDate)}${due.last ? ' — the last payment!' : ''}`].filter(Boolean).join(' · ')
+      + '. Paid already? Mark it “Paid ✓” in Aqsati.';
+  } else {
+    title = `${today ? 'اليوم' : 'باچر'} قسط ${due.provider} ${money} د.ك — لا تنسى`;
+    body = [due.title, `يستحق ${ntfDayAr.format(asDate)}${due.last ? ' — وهذي آخر دفعة!' : ''}`].filter(Boolean).join(' · ')
+      + '. إذا دفعته علّمه «دفعت ✓» بأقساطي.';
+  }
+  return {
+    title,
+    options: {
+      body,
+      tag: `aqsati-due-${due.key}`,
+      lang: en ? 'en' : 'ar',
+      dir: en ? 'ltr' : 'rtl',
+      icon: '/icons/icon-192.png',
+      data: { url: NTF_PAGE, key: due.key },
+    },
+  };
+}
+
+function ntfPending(state, today, settings, lang) {
+  const s = ntfNormalize(settings);
+  if (!s.on) return [];
+  const shown = new Set(s.shown);
+  return ntfDues(state, today, s.mode).filter((d) => !shown.has(d.key)).map((d) => ({ key: d.key, ...ntfNotification(d, lang) }));
+}
+
+function ntfRemember(shown, keys, today) {
+  const floor = ntfAddDays(today, -45);
+  const all = [...new Set([...(Array.isArray(shown) ? shown : []), ...(Array.isArray(keys) ? keys : [])])];
+  return all.filter((k) => typeof k === 'string' && NTF_SHOWN_RE.test(k) && k.slice(-10) >= floor).slice(-200);
+}
+
+async function ntfCheckDues() {
+  const cache = await caches.open(NTF_CACHE);
+  const saved = await cache.match(NTF_URL);
+  const raw = saved ? await saved.json().catch(() => null) : null;
+  const settings = ntfNormalize(raw);
+  if (!settings.on) return;
+  if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') return;
+  const res = await fetch('/api/rpc', {
+    method: 'POST',
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fn: 'aqsati_state', args: {} }),
+  });
+  if (!res.ok) return;
+  const state = await res.json().catch(() => null);
+  if (!state?.user) return; // signed out: nothing to remind
+  const today = ntfToday();
+  const lang = raw?.lang === 'en' ? 'en' : 'ar';
+  const shown = [];
+  for (const n of ntfPending(state, today, settings, lang)) {
+    try {
+      await self.registration.showNotification(n.title, n.options);
+      shown.push(n.key);
+    } catch {
+      // permission revoked meanwhile
+    }
+  }
+  if (!shown.length) return;
+  // re-read: the page may have changed the settings while we were fetching
+  const latest = await cache.match(NTF_URL);
+  const now = (latest ? await latest.json().catch(() => null) : null) || raw || {};
+  const next = { ...now, shown: ntfRemember(ntfNormalize(now).shown, [...settings.shown, ...shown], today) };
+  await cache.put(NTF_URL, new Response(JSON.stringify(next), { headers: { 'Content-Type': 'application/json' } }));
+}
+
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag !== NTF_TAG) return;
+  event.waitUntil(ntfCheckDues().catch(() => {}));
+});
+
+async function ntfOpenPage(path) {
+  const target = new URL(path, self.location.origin);
+  const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const same = wins.find((c) => new URL(c.url).pathname === target.pathname);
+  if (same) return same.focus();
+  const any = wins.find((c) => new URL(c.url).origin === target.origin);
+  if (any) {
+    try {
+      const focused = await any.focus();
+      const moved = await (focused || any).navigate(target.href);
+      if (moved) return moved;
+    } catch {
+      // an uncontrolled window can't be navigated from here: open a new one
+    }
+  }
+  return self.clients.openWindow(target.href);
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url;
+  const path = typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') ? url : NTF_PAGE;
+  event.waitUntil(ntfOpenPage(path).catch(() => {}));
 });

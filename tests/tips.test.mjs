@@ -110,3 +110,76 @@ test('duesBeforeSalary: payday today or unset', () => {
   assert.equal(duesBeforeSalary([A], [], null, TODAY), null);
   assert.equal(duesBeforeSalary([A], [], 0, TODAY), null);
 });
+
+// ---------- remaining modes: open-ended (no end date) and amount with a partial final payment ----------
+
+const OPEN = { id: 'o', provider: 'بطاقة ائتمانية', title: '', monthly_amount: 40, due_day: 10, remaining_count: null, remaining_mode: 'open', last_amount: null, first_due_date: '2026-09-10' };
+const PART = { id: 'p', provider: 'تابي', title: 'لابتوب', monthly_amount: 25, due_day: 25, remaining_count: 7, remaining_mode: 'amount', last_amount: 12.5, first_due_date: '2026-11-25' };
+
+test('tips: over the limit with only open-ended installments → overOpen (no end date to wait for)', () => {
+  const tips = buildTips({ installments: [OPEN], payments: [], profile: profile(50), today: TODAY });
+  assert.equal(tips[0].id, 'overOpen');
+  assert.equal(tips[0].tone, 'over');
+  assert.match(tips[0].body, /20\.000 د\.ك/); // 40 vs limit 20
+  assert.equal(tips[0].action.href, '/check#whatif');
+  // with a finite installment the classic «over» (until it ends) is used
+  const mixed = buildTips({ installments: [OPEN, SHORT], payments: [], profile: profile(50), today: TODAY });
+  assert.equal(mixed[0].id, 'over');
+  assert.match(mixed[0].body, /ديما/);
+});
+
+test('tips: «closest» and «biggest» ignore open-ended installments; an openEnded info tip is added', () => {
+  const tips = buildTips({ installments: [OPEN, SHORT], payments: [], profile: profile(3000, 1), today: TODAY }, { max: 10 });
+  const closest = tips.find((t) => t.id === 'closest');
+  assert.ok(closest);
+  assert.match(closest.body, /ديما/);
+  const open = tips.find((t) => t.id === 'openEnded');
+  assert.ok(open);
+  assert.equal(open.tone, 'info');
+  assert.match(open.body, /40\.000 د\.ك/);
+  assert.match(open.body, /عليه/);
+  assert.equal(open.action.href, '/installments');
+  // biggest is the finite one even though the open-ended one is bigger; share is still over the whole monthly total
+  const big = buildTips({ installments: [OPEN, { ...B, monthly_amount: 30 }], payments: [], profile: profile(5000, 1), today: TODAY }, { max: 10 }).find((t) => t.id === 'biggest');
+  assert.ok(big);
+  assert.match(big.body, /قرض بنك/);
+  assert.match(big.body, /42\.9%/); // 30 / 70
+  const two = buildTips({ installments: [OPEN, { ...OPEN, id: 'o2' }], payments: [], profile: profile(3000, 1), today: TODAY }, { max: 10 });
+  assert.match(two.find((t) => t.id === 'openEnded').body, /قسطين/);
+  assert.match(two.find((t) => t.id === 'openEnded').body, /عليها/);
+});
+
+test('tips: an open-only user with a comfortable ratio never crashes and gets good + openEnded', () => {
+  let tips;
+  assert.doesNotThrow(() => {
+    tips = buildTips({ installments: [OPEN], payments: [], profile: profile(1000), today: TODAY }, { max: 10 });
+  });
+  const got = ids(tips);
+  for (const id of ['closest', 'biggest', 'over', 'overOpen', 'free']) assert.ok(!got.includes(id), id);
+  assert.ok(got.includes('good'));
+  assert.ok(got.includes('openEnded'));
+  // the debt-free tip never shows while an open-ended installment runs
+  const doneAndOpen = buildTips({ installments: [inst('d', 'تمارا', 40, 1, 3, '2026-05-01'), OPEN], payments: [], profile: profile(1000), today: TODAY }, { max: 10 });
+  assert.ok(!ids(doneAndOpen).includes('free'));
+});
+
+test('tips: English overOpen / openEnded', () => {
+  const tips = buildTips({ installments: [OPEN], payments: [], profile: profile(50), today: TODAY }, { lang: 'en', max: 10 });
+  const over = tips.find((t) => t.id === 'overOpen');
+  const open = tips.find((t) => t.id === 'openEnded');
+  assert.ok(over && open);
+  for (const t of [over, open]) assert.doesNotMatch(`${t.title} ${t.body} ${t.action.label}`, ARABIC);
+  assert.match(over.body, /KWD 20\.000/);
+  assert.match(open.body, /1 installment with no end date \(KWD 40\.000 a month\)/);
+  assert.match(open.body, /edit it /);
+  assert.ok(TIP_IDS.includes('overOpen') && TIP_IDS.includes('openEnded'));
+});
+
+test('duesBeforeSalary: open-ended due every month; the partial final payment uses its amount', () => {
+  const d = duesBeforeSalary([OPEN, PART], [], 28, '2027-05-01');
+  assert.deepEqual(d.items.map((i) => [i.inst.id, i.date, i.amount]), [['o', '2027-05-10', 40], ['p', '2027-05-25', 12.5]]);
+  assert.equal(d.count, 2);
+  assert.equal(d.total, 52.5);
+  const ancient = duesBeforeSalary([{ ...OPEN, first_due_date: '1990-01-10' }], [], 12, TODAY);
+  assert.deepEqual(ancient.items.map((i) => i.date), ['2026-12-10']);
+});

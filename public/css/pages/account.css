@@ -99,6 +99,26 @@
 .pref-seg input:checked + span .ico { color: var(--gold-3); }
 :root[data-theme='dark'] .pref-seg input:checked + span .ico { color: var(--gold); }
 
+/* ---------- reminders («التنبيهات») ---------- */
+.notify-body { display: grid; gap: var(--s-4); min-width: 0; }
+.notify-switch { justify-self: start; max-width: 100%; font-weight: 700; color: var(--text); }
+.notify-switch span { line-height: 1.4; }
+.notify-switch input:disabled { opacity: 0.55; cursor: not-allowed; }
+.notify-when { display: grid; gap: 8px; min-width: 0; transition: opacity var(--t); }
+.notify-when.is-off { opacity: 0.55; }
+.notify-when-label { margin: 0; color: var(--text-2); font-size: 0.88rem; font-weight: 600; }
+.notify-seg { display: flex; width: 100%; }
+.notify-seg label { flex: 1 1 0; min-width: 0; }
+.notify-seg span { min-height: 44px; text-align: center; line-height: 1.25; }
+.notify-seg input:disabled { cursor: not-allowed; }
+.notify-status:empty { display: none; }
+.notify-msg { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.notify-msg p { margin: 0; line-height: 1.55; }
+.notify-msg p + p { color: var(--text-2); font-size: 0.9rem; }
+.notify-honest { line-height: 1.6; }
+.notify-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.notify-actions[hidden] { display: none; }
+
 /* ---------- security ---------- */
 .locked { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-radius: var(--r); background: var(--surface-2); border: 1px dashed var(--line-2); color: var(--text-2); }
 .locked .ico { flex: none; margin-top: 2px; color: var(--text-2); }

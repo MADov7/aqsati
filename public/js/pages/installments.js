@@ -7,6 +7,7 @@ import {
 import * as C from '../../calc.js';
 import { parseSms, SAMPLE_MESSAGES } from '../logic/sms.js';
 import { computeStreak, monthStatus } from '../logic/streak.js';
+import { remindDues } from '../logic/notify.js';
 
 // ---------- strings ----------
 
@@ -97,6 +98,25 @@ registerStrings({
     'form.err.monthly': 'حط مبلغ صحيح أكبر من صفر',
     'form.err.dueDay': 'يوم من 1 إلى 31',
     'form.err.remaining': 'عدد من 1 إلى 360',
+    'form.remWhat': 'وش تعرف عن الباقي؟',
+    'form.modeCount': 'عدد الأقساط',
+    'form.modeAmount': 'المبلغ الباقي',
+    'form.modeOpen': 'ما أعرف',
+    'form.amountLeft': 'كم باقي عليك بالدينار؟',
+    'form.amountLeftHint': 'المجموع الي باقي تدفعه، مع قسط هالشهر إذا ما انسحب للحين',
+    'form.amountCalc': 'يعني {count}، وآخر قسط {last}',
+    'form.amountCalcEven': 'يعني {count} كلها بنفس المبلغ',
+    'form.amountCalcOne': 'يعني دفعة وحدة بـ {last}',
+    'form.amountCalcMax': 'يطلع {count} — الحد 360 قسط',
+    'form.amountCalcNeedMonthly': 'حط المبلغ الشهري ونحسب لك كم قسط',
+    'form.amountCalcTiny': 'يعني {count}، وآخر قسط {last} بس — إذا هذا فرق تقريب، اختار «عدد الأقساط» وحط {n}',
+    'form.openNote': 'مفتوح — بدون تاريخ نهاية: نحسبه عليك كل شهر (مثل البطاقة أو قرض ما تعرف متى يخلص). تقدر تعدّله بعدين.',
+    'form.previewOpen': 'القسط الجاي {next} · كل شهر بدون نهاية',
+    'form.err.remainingMode': 'اختار وش تعرف عن الباقي',
+    'form.err.amountLeft': 'حط مبلغ أكبر من صفر (وما يطلع أكثر من 360 قسط)',
+    'inst.statDebtOpen': 'ما يشمل المفتوحة ({n})',
+    'inst.openSince': 'شغّال من {month}',
+    'inst.openStarts': 'يبدأ {month}',
 
     'sms.title': 'الصق رسالة البنك',
     'sms.hint': 'نفهم المبلغ والجهة وكم قسط باقي، وأنت تأكد قبل الحفظ.',
@@ -110,7 +130,7 @@ registerStrings({
     'sms.provider': 'الجهة: {v}',
     'sms.remaining': 'باقي: {v}',
     'sms.dueDay': 'يوم الاستحقاق: {v}',
-    'sms.noRemaining': 'عدد الأقساط: كمّله أنت',
+    'sms.noRemaining': 'الباقي: اختار أنت (عدد، مبلغ، أو ما أعرف)',
     'sms.noProvider': 'الجهة: اختارها أنت',
     'sms.noDueDay': 'يوم الاستحقاق: كمّله أنت',
     'sms.level.high': 'ثقة عالية',
@@ -208,6 +228,25 @@ registerStrings({
     'form.err.monthly': 'Enter a valid amount above zero',
     'form.err.dueDay': 'A day from 1 to 31',
     'form.err.remaining': 'A number from 1 to 360',
+    'form.remWhat': "What do you know about what's left?",
+    'form.modeCount': 'Payments left',
+    'form.modeAmount': 'Amount left',
+    'form.modeOpen': 'Not sure',
+    'form.amountLeft': 'How much is left (KWD)?',
+    'form.amountLeftHint': "The total still to pay, including this month's if it hasn't been charged yet",
+    'form.amountCalc': '= {count}, the last one {last}',
+    'form.amountCalcEven': '= {count}, all the same amount',
+    'form.amountCalcOne': '= a single payment of {last}',
+    'form.amountCalcMax': "That's {count} — the limit is 360",
+    'form.amountCalcNeedMonthly': "Enter the monthly amount and we'll work out the payments",
+    'form.amountCalcTiny': '= {count}, the last one only {last} — if that\'s just rounding, choose “Payments left” and enter {n}',
+    'form.openNote': "Open-ended — no end date: we count it every month (like a card or a loan whose end you don't know). You can change it later.",
+    'form.previewOpen': 'Next {next} · every month, no end date',
+    'form.err.remainingMode': "Choose what you know about what's left",
+    'form.err.amountLeft': 'Enter an amount above zero (no more than 360 payments)',
+    'inst.statDebtOpen': 'Excludes open-ended ({n})',
+    'inst.openSince': 'Running since {month}',
+    'inst.openStarts': 'Starts {month}',
 
     'sms.title': 'Paste a bank SMS',
     'sms.hint': 'We pick out the amount, provider and payments left — you confirm before saving.',
@@ -221,7 +260,7 @@ registerStrings({
     'sms.provider': 'Provider: {v}',
     'sms.remaining': 'Left: {v}',
     'sms.dueDay': 'Due day: {v}',
-    'sms.noRemaining': 'Payments left: you fill it in',
+    'sms.noRemaining': "What's left: you choose (payments, amount or not sure)",
     'sms.noProvider': 'Provider: you pick it',
     'sms.noDueDay': 'Due day: you fill it in',
     'sms.level.high': 'High confidence',
@@ -335,7 +374,8 @@ function renderStats(st, s) {
     ${tile(t('inst.statMonthly'), `<span class="num" data-count="monthly" data-to="${s.monthlyTotal}">${esc(fmt.money(s.monthlyTotal))}</span>`, svg('<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.4"/>'))}
     ${tile(t('inst.statPaid'), ms.due ? num(t('inst.statPaidOf', { paid: ms.paid, due: ms.due })) : `<span class="stat-none">${esc(t('inst.statPaidNone'))}</span>`, svg('<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/>'), ms.complete ? ' tone-ok' : '',
       ms.due ? `<span class="mini-meter" aria-hidden="true"><i class="lvl-ok" data-w="${(ms.paid / ms.due) * 100}"></i></span>` : '')}
-    ${tile(t('inst.statDebt'), `<span class="num" data-count="debt" data-to="${s.totalDebt}">${esc(fmt.money(s.totalDebt))}</span>`, svg('<ellipse cx="12" cy="6.5" rx="7" ry="2.8"/><path d="M5 6.5v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-5"/><path d="M5 11.5v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-5"/>'))}`;
+    ${tile(t('inst.statDebt'), `<span class="num" data-count="debt" data-to="${s.totalDebt}">${esc(fmt.money(s.totalDebt))}</span>`, svg('<ellipse cx="12" cy="6.5" rx="7" ry="2.8"/><path d="M5 6.5v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-5"/><path d="M5 11.5v5c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-5"/>'), '',
+      s.openCount > 0 ? esc(t('inst.statDebtOpen', { n: s.openCount })) : '')}`;
   box.querySelectorAll('.mini-meter i').forEach((i) => fx.setWidth(i, Number(i.dataset.w)));
   const fmts = { active: (x) => String(Math.round(x)), monthly: fmt.money, debt: fmt.money };
   box.querySelectorAll('[data-count]').forEach((el) => {
@@ -359,8 +399,8 @@ function payMonths(inst) {
 
 function itemHTML(i, paid, finished) {
   const name = fmt.provider(i.provider);
-  const total = Number(i.remaining_count) || 0;
-  const done = total - i.remaining;
+  const total = i.open ? 0 : Number(i.count) || 0;
+  const done = i.open ? 0 : total - i.remaining;
   const { main, past } = payMonths(i);
   const mainPaid = main ? paid.has(`${i.id}|${main}`) : false;
   const soon = !finished && !mainPaid && i.daysLeft != null && i.daysLeft <= 3;
@@ -388,11 +428,13 @@ function itemHTML(i, paid, finished) {
         ${finished
           ? `<span class="chip chip-ok">${esc(t('inst.finishedOn', { month: fmt.month(i.lastDue) }))}</span>`
           : `<span>${t('inst.next', { date: `<b class="num">${esc(fmt.day(i.nextDue))}</b>` })} · <b class="when${soon ? ' is-soon' : ''}">${esc(fmt.daysLeft(i.daysLeft))}</b></span>
-             <span>${esc(t('inst.left', { count: fmt.count(i.remaining) }))} · ${esc(t('inst.last', { month: fmt.month(i.lastDue) }))}</span>`}
-        <span class="plan" title="${esc(t('inst.progress', { paid: done, total, totalText: fmt.count(total) }))}">
+             <span class="inst-left${i.open ? ' is-open' : ''}">${esc(fmt.left(i))}${i.open ? '' : ` · ${esc(t('inst.last', { month: fmt.month(i.lastDue) }))}`}</span>`}
+        ${i.open
+          ? `<span class="plan plan-open-line"><span class="plan-txt">${esc(t(i.first_due_date <= today() ? 'inst.openSince' : 'inst.openStarts', { month: fmt.month(i.first_due_date) }))}</span></span>`
+          : `<span class="plan" title="${esc(t('inst.progress', { paid: done, total, totalText: fmt.count(total) }))}">
           <span class="mini-meter" aria-hidden="true"><i class="${finished ? 'lvl-ok' : 'gold'}" data-w="${total ? (done / total) * 100 : 0}"></i></span>
           <span class="plan-txt">${esc(t('inst.progress', { paid: done, total, totalText: fmt.count(total) }))}</span>
-        </span>
+        </span>`}
       </div>
       ${main || past.length ? `<div class="inst-pay">${mainBtn}${pastBtns}</div>` : ''}
       <div class="item-actions">
@@ -668,7 +710,7 @@ const editor = {
             <input id="ed-title-in" name="title" maxlength="80" autocomplete="off" data-i18n-placeholder="form.titlePh" aria-describedby="ed-title-err">
             <p class="err" id="ed-title-err" data-err="title" aria-live="polite"></p>
           </div>
-          <div class="form-row three">
+          <div class="form-row">
             <div class="field">
               <label for="ed-monthly" data-i18n="form.monthly">المبلغ الشهري</label>
               <div class="input-group" dir="ltr">
@@ -683,13 +725,32 @@ const editor = {
               <p class="hint" id="ed-day-hint" data-i18n="form.dueDayHint">اليوم الي ينسحب فيه القسط كل شهر (1–31)</p>
               <p class="err" id="ed-day-err" data-err="dueDay" aria-live="polite"></p>
             </div>
-            <div class="field">
+          </div>
+          <fieldset class="rem-field">
+            <legend class="field-label" data-i18n="form.remWhat">وش تعرف عن الباقي؟</legend>
+            <div class="seg rem-seg">
+              <label><input type="radio" name="remainingMode" id="ed-mode-count" value="count" aria-describedby="ed-mode-err"><span data-i18n="form.modeCount">عدد الأقساط</span></label>
+              <label><input type="radio" name="remainingMode" id="ed-mode-amount" value="amount" aria-describedby="ed-mode-err"><span data-i18n="form.modeAmount">المبلغ الباقي</span></label>
+              <label><input type="radio" name="remainingMode" id="ed-mode-open" value="open" aria-describedby="ed-open-note ed-mode-err"><span data-i18n="form.modeOpen">ما أعرف</span></label>
+            </div>
+            <p class="err" id="ed-mode-err" data-err="remainingMode" aria-live="polite"></p>
+            <div class="field" id="ed-count-wrap">
               <label for="ed-remaining" data-i18n="form.remaining">كم قسط باقي؟</label>
               <input id="ed-remaining" name="remaining" inputmode="numeric" autocomplete="off" dir="ltr" placeholder="6" aria-describedby="ed-rem-hint ed-remaining-err">
               <p class="hint" id="ed-rem-hint" data-i18n="form.remainingHint">مع قسط هالشهر إذا ما انسحب للحين</p>
               <p class="err" id="ed-remaining-err" data-err="remaining" aria-live="polite"></p>
             </div>
-          </div>
+            <div class="field" id="ed-amount-wrap" hidden>
+              <label for="ed-amount" data-i18n="form.amountLeft">كم باقي عليك بالدينار؟</label>
+              <div class="input-group" dir="ltr">
+                <input id="ed-amount" name="amountLeft" inputmode="decimal" autocomplete="off" placeholder="162.500" aria-describedby="ed-amount-hint ed-amount-err">
+                <span class="input-affix" data-i18n="common.kwd">د.ك</span>
+              </div>
+              <p class="hint" id="ed-amount-hint"></p>
+              <p class="err" id="ed-amount-err" data-err="amountLeft" aria-live="polite"></p>
+            </div>
+            <p class="hint ed-open-note" id="ed-open-note" data-i18n="form.openNote" hidden>مفتوح — بدون تاريخ نهاية: نحسبه عليك كل شهر (مثل البطاقة أو قرض ما تعرف متى يخلص). تقدر تعدّله بعدين.</p>
+          </fieldset>
           <p class="ed-preview" id="ed-preview" aria-live="polite"></p>
           <p class="err modal-err" id="ed-form-err" aria-live="assertive"></p>
           <div class="modal-actions">
@@ -709,6 +770,9 @@ const editor = {
       this.$('#ed-other-wrap').hidden = !other;
       if (other) this.$('#ed-other').focus();
       this.preview();
+    });
+    form.addEventListener('change', (e) => {
+      if (e.target instanceof HTMLInputElement && e.target.name === 'remainingMode') this.syncMode();
     });
     form.addEventListener('input', (e) => {
       this.preview();
@@ -747,6 +811,29 @@ const editor = {
     this.$('.btn-label').textContent = t(editing ? 'form.saveEdit' : 'form.save');
     this.$('.modal-ico').innerHTML = editing ? ICO.edit : ICO.plus;
     this.fillProviders();
+    this.syncMode();
+  },
+
+  /** The checked «وش تعرف عن الباقي؟» option: 'count' | 'amount' | 'open', or '' when none is picked yet. */
+  mode() {
+    return this.$('input[name="remainingMode"]:checked')?.value || '';
+  },
+
+  /** Show only the input of the checked mode (none checked ⇒ none), clear what is hidden, refresh the preview. */
+  syncMode() {
+    if (!this.el) return;
+    const mode = this.mode();
+    const parts = { count: '#ed-count-wrap', amount: '#ed-amount-wrap', open: '#ed-open-note' };
+    for (const [m, sel] of Object.entries(parts)) {
+      const el = this.$(sel);
+      el.hidden = m !== mode;
+      if (el.hidden) {
+        el.querySelectorAll('[data-err]').forEach((p) => { p.textContent = ''; });
+        el.querySelectorAll('input').forEach((i) => i.setAttribute('aria-invalid', 'false'));
+      }
+    }
+    // the generic input handler never reaches the radios: a picked mode clears its own error here
+    if (mode) this.$('#ed-mode-err').textContent = '';
     this.preview();
   },
 
@@ -770,6 +857,11 @@ const editor = {
     this.$('#ed-monthly').value = values.monthly ?? '';
     this.$('#ed-day').value = values.dueDay ?? '';
     this.$('#ed-remaining').value = values.remaining ?? '';
+    this.$('#ed-amount').value = values.amountLeft ?? '';
+    // form.reset() unchecked every radio; pick the saved / requested mode BEFORE texts() runs syncMode()
+    const mode = values.remainingMode === undefined ? 'count' : values.remainingMode;
+    const radio = C.REMAINING_MODES.includes(mode) ? this.$(`#ed-mode-${mode}`) : null;
+    if (radio) radio.checked = true;
     const noteEl = this.$('#ed-note');
     noteEl.textContent = note;
     noteEl.hidden = !note;
@@ -786,13 +878,20 @@ const editor = {
     document.addEventListener('keydown', this.onKey, true);
     requestAnimationFrame(() => {
       // the first field that still needs the user
-      const order = ['#ed-provider', '#ed-monthly', '#ed-day', '#ed-remaining'];
       if (!values.provider) {
         this.$('#ed-provider').focus();
         return;
       }
-      const firstEmpty = order.slice(1).find((s) => !this.$(s).value);
-      (firstEmpty ? this.$(firstEmpty) : this.$('#ed-save')).focus();
+      const firstEmpty = ['#ed-monthly', '#ed-day'].find((s) => !this.$(s).value);
+      if (firstEmpty) {
+        this.$(firstEmpty).focus();
+        return;
+      }
+      const m = this.mode();
+      const modeInput = !m ? '#ed-mode-count' : m === 'count' ? '#ed-remaining' : m === 'amount' ? '#ed-amount' : null;
+      // no mode yet ⇒ the radio group; a mode whose field is still empty ⇒ that field; otherwise save
+      const target = modeInput && (!m || !this.$(modeInput).value) ? this.$(modeInput) : this.$('#ed-save');
+      target.focus();
     });
   },
 
@@ -848,27 +947,91 @@ const editor = {
       title: this.$('#ed-title-in').value,
       monthly: this.$('#ed-monthly').value,
       dueDay: this.$('#ed-day').value,
+      remainingMode: this.mode(),
       remaining: this.$('#ed-remaining').value,
+      amountLeft: this.$('#ed-amount').value,
     };
   },
 
-  /** v.value as it will be saved: an edit that leaves due day + remaining as they were keeps the plan's dates. */
+  /**
+   * v.value as it will be saved. The stored schedule (first due date, so the paid marks stay aligned) is kept only
+   * when nothing that defines it changed; a mode switch or any change ⇒ a new plan from today.
+   */
   plan(value) {
     const k = this.id ? this.keep : null;
-    if (k && Number(value.dueDay) === Number(k.dueDay) && Number(value.remaining) === Number(k.remaining)) {
+    if (!k || value.remainingMode !== k.mode || Number(value.dueDay) !== k.dueDay) return value;
+    if (k.mode === 'count' && Number(value.remaining) === k.remaining) {
       return { ...value, firstDue: k.firstDue, remaining: k.remainingCount };
     }
+    if (k.mode === 'amount' && C.round3(value.monthly) === k.monthly && C.round3(value.amountLeft) === k.amountLeft) {
+      // the server re-derives the same count + last payment from the stored plan total
+      return { ...value, firstDue: k.firstDue, amountLeft: k.planTotal };
+    }
+    if (k.mode === 'open') return { ...value, firstDue: k.firstDue };
     return value;
+  },
+
+  /** The live line under «كم باقي عليك بالدينار؟»: the server's own split (count + last payment) of what was typed. */
+  amountHint(v, raw) {
+    const el = this.$('#ed-amount-hint');
+    if (raw.remainingMode !== 'amount') {
+      el.textContent = t('form.amountLeftHint');
+      return;
+    }
+    if (v.errors.monthly) {
+      el.textContent = t('form.amountCalcNeedMonthly');
+      return;
+    }
+    // numbers only: Number('١٦٢٫٥') is NaN, so parse the typed text first (Arabic digits OK)
+    const split = C.splitAmount(C.round3(C.parseAmount(raw.amountLeft)), v.value.monthly);
+    const monthly = v.value.monthly;
+    let text;
+    if (!split) text = t('form.amountLeftHint');
+    else if (split.count > C.MAX_PAYMENTS) text = t('form.amountCalcMax', { count: fmt.count(split.count) });
+    else if (split.count === 1) text = t('form.amountCalcOne', { last: fmt.money(split.last) });
+    else if (split.lastAmount === null) text = t('form.amountCalcEven', { count: fmt.count(split.count) });
+    else if (split.lastAmount < 1 && split.lastAmount * 10 < monthly) {
+      // e.g. 1000 at 33.333 ⇒ 31 payments, the last 0.010 — allowed, but probably a rounded monthly
+      text = t('form.amountCalcTiny', { count: fmt.count(split.count), last: fmt.money(split.lastAmount), n: split.count - 1 });
+    } else text = t('form.amountCalc', { count: fmt.count(split.count), last: fmt.money(split.lastAmount) });
+    el.textContent = text;
   },
 
   preview() {
     if (!this.el) return;
-    const v = C.validateInstallmentInput(this.raw());
+    const raw = this.raw();
+    const v = C.validateInstallmentInput(raw);
     const out = this.$('#ed-preview');
-    if (!v.errors.monthly && !v.errors.dueDay && !v.errors.remaining) {
-      const p = this.plan(v.value);
-      const first = p.firstDue || C.firstDueDate(v.value.dueDay, today());
-      const inst = { first_due_date: first, due_day: v.value.dueDay, remaining_count: p.remaining, monthly_amount: v.value.monthly };
+    const mode = raw.remainingMode;
+    this.amountHint(v, raw);
+    const e = v.errors;
+    const ready = Boolean(mode) && !e.monthly && !e.dueDay && !e.remainingMode
+      && (mode !== 'count' || !e.remaining) && (mode !== 'amount' || !e.amountLeft);
+    if (!ready) {
+      out.textContent = '';
+      out.hidden = true;
+      return;
+    }
+    const p = this.plan(v.value);
+    const first = p.firstDue || C.firstDueDate(v.value.dueDay, today());
+    const base = { first_due_date: first, due_day: v.value.dueDay, monthly_amount: v.value.monthly, remaining_mode: mode };
+    if (mode === 'open') {
+      const inst = { ...base, remaining_count: null, last_amount: null };
+      const next = p.firstDue ? C.installmentStatus(inst, today()).nextDue || first : first;
+      out.innerHTML = t('form.previewOpen', { next: num(fmt.day(next)) });
+    } else if (mode === 'amount') {
+      // the plan exactly as the server will store it (a kept plan re-splits its stored total)
+      const split = C.splitAmount(p.amountLeft, v.value.monthly);
+      const inst = { ...base, remaining_count: split.count, last_amount: split.lastAmount };
+      const stt = C.installmentStatus(inst, today());
+      const total = p.firstDue ? (stt.remainingTotal > 0 ? stt.remainingTotal : stt.lastAmount) : v.value.amountLeft;
+      out.innerHTML = t('form.preview', {
+        next: num(fmt.day(p.firstDue ? stt.nextDue || first : first)),
+        last: num(fmt.month(C.nthDueDate(inst, split.count - 1))),
+        total: num(fmt.money(total)),
+      });
+    } else {
+      const inst = { ...base, remaining_count: p.remaining, last_amount: null };
       const left = p.firstDue ? Math.max(1, C.installmentStatus(inst, today()).remaining) : v.value.remaining;
       const next = p.firstDue ? C.installmentStatus(inst, today()).nextDue || first : first;
       out.innerHTML = t('form.preview', {
@@ -876,11 +1039,8 @@ const editor = {
         last: num(fmt.month(C.nthDueDate(inst, p.remaining - 1))),
         total: num(fmt.money(v.value.monthly * left)),
       });
-      out.hidden = false;
-    } else {
-      out.textContent = '';
-      out.hidden = true;
     }
+    out.hidden = false;
   },
 
   showErrors(errors, picked) {
@@ -896,9 +1056,11 @@ const editor = {
       const input = p.closest('.field')?.querySelector('input, select');
       if (input) input.setAttribute('aria-invalid', map[key] ? 'true' : 'false');
     });
-    const order = ['provider', 'other', 'title', 'monthly', 'dueDay', 'remaining'];
+    const order = ['provider', 'other', 'title', 'monthly', 'dueDay', 'remainingMode', 'remaining', 'amountLeft'];
     const first = order.find((k) => map[k]);
-    if (first) this.el.querySelector(`[data-err="${first}"]`)?.closest('.field')?.querySelector('input, select')?.focus();
+    // the mode error sits outside any .field by design: focus the first radio (focus() does not check it)
+    if (first === 'remainingMode') this.$('#ed-mode-count').focus();
+    else if (first) this.el.querySelector(`[data-err="${first}"]`)?.closest('.field')?.querySelector('input, select')?.focus();
   },
 
   async submit() {
@@ -938,8 +1100,12 @@ const editor = {
 function startEdit(id) {
   const inst = store.state.installments.find((i) => i.id === id);
   if (!inst) return;
+  const mode = C.remainingMode(inst);
   const stt = C.installmentStatus(inst, today());
-  const shownRemaining = Math.max(1, stt.remaining);
+  const open = mode === 'open';
+  // modes 1 and 2 are both prefilled, so switching between them shows the equivalent of what is left
+  const shownRemaining = open ? null : Math.max(1, stt.remaining);
+  const shownAmount = open ? null : C.round3(stt.remainingTotal > 0 ? stt.remainingTotal : stt.lastAmount);
   editor.open({
     id,
     values: {
@@ -947,14 +1113,21 @@ function startEdit(id) {
       title: inst.title || '',
       monthly: Number(inst.monthly_amount).toFixed(3),
       dueDay: String(inst.due_day),
-      remaining: String(shownRemaining),
+      remainingMode: mode,
+      remaining: open ? '' : String(shownRemaining),
+      amountLeft: open ? '' : shownAmount.toFixed(3),
     },
-    // Saving with the same due day and remaining count keeps the original schedule (and its paid marks).
+    // Saving with the same mode and the same numbers keeps the original schedule (and its paid marks).
     keep: {
+      mode,
       dueDay: Number(inst.due_day),
-      remaining: shownRemaining,
       firstDue: inst.first_due_date,
+      remaining: shownRemaining,
       remainingCount: Number(inst.remaining_count),
+      monthly: C.round3(Number(inst.monthly_amount)),
+      amountLeft: shownAmount,
+      planTotal: C.planTotal(inst),
+      lastAmount: inst.last_amount ?? null,
     },
   });
 }
@@ -1012,13 +1185,16 @@ function applySms() {
   const r = ui.sms;
   if (!r?.ok) return;
   const lang = getLang();
+  const hasCount = r.remaining != null && r.remaining >= 1;
   editor.open({
     values: {
       provider: r.provider || undefined, // unknown: the select gets focus so the user picks it
       title: r.title ? r.title[lang] : '',
       monthly: r.amount.toFixed(3),
       dueDay: r.dueDay != null ? String(r.dueDay) : '',
-      remaining: r.remaining != null && r.remaining >= 1 ? String(r.remaining) : '',
+      // a count in the message ⇒ mode 1; otherwise nothing is pre-picked and the user chooses what they know
+      remainingMode: hasCount ? 'count' : '',
+      remaining: hasCount ? String(r.remaining) : '',
     },
     note: t('form.fromSms'),
   });
@@ -1141,6 +1317,7 @@ function bind() {
 store.subscribe(render);
 bind();
 await initPage({ active: 'installments', requireAuth: true, title: 'inst.doc' });
+remindDues(store); // installment reminders (switched on in /account)
 if (!store.loaded) {
   ui.loadFailed = true;
   render();

@@ -185,6 +185,11 @@ registerStrings({
     'level.over': 'متعدي حدك الآمن',
     'level.none': 'حط راتبك عشان نحسب النسبة',
 
+    'rem.count': 'باقي {count}',
+    'rem.amount': 'باقي {amount} — {count}',
+    'rem.amountLast': 'باقي {amount} — {count}، آخرها {last}',
+    'rem.open': 'مفتوح — بدون تاريخ نهاية',
+
     'dialog.title': 'متأكد؟',
     'dialog.close': 'سكّر النافذة',
 
@@ -202,6 +207,9 @@ registerStrings({
     'err.too many installments': 'وصلت للحد الأقصى (50 قسط).',
     'err.invalid first due date': 'تاريخ الاستحقاق مو منطقي، تأكد من يوم الاستحقاق.',
     'err.invalid monthly': 'المبلغ الشهري مو صحيح.',
+    'err.invalid remaining': 'عدد الأقساط الباقية لازم يكون من 1 إلى 360.',
+    'err.invalid amountLeft': 'المبلغ الباقي مو صحيح، أو يطلع أكثر من 360 قسط.',
+    'err.invalid remainingMode': 'اختار وش تعرف عن الباقي: عدد الأقساط، المبلغ، أو ما أعرف.',
     'err.invalid input': 'في بيانات ناقصة أو مو صحيحة، راجعها وجرب مرة ثانية.',
     'err.invalid salary': 'حط راتب صحيح أكبر من صفر.',
     'err.invalid salary day': 'يوم الراتب لازم يكون من 1 إلى 31.',
@@ -300,6 +308,11 @@ registerStrings({
     'level.over': 'Over your safe limit',
     'level.none': 'Add your salary to see your ratio',
 
+    'rem.count': '{count} left',
+    'rem.amount': '{amount} left — {count}',
+    'rem.amountLast': '{amount} left — {count}, the last one {last}',
+    'rem.open': 'Open-ended — no end date',
+
     'dialog.title': 'Are you sure?',
     'dialog.close': 'Close dialog',
 
@@ -317,6 +330,9 @@ registerStrings({
     'err.too many installments': "You've reached the maximum (50 installments).",
     'err.invalid first due date': "That due date doesn't make sense. Check the due day.",
     'err.invalid monthly': "The monthly amount isn't valid.",
+    'err.invalid remaining': 'Payments left must be between 1 and 360.',
+    'err.invalid amountLeft': "The amount left isn't valid, or it works out to more than 360 payments.",
+    'err.invalid remainingMode': "Choose what you know about what's left: payments, amount, or not sure.",
     'err.invalid input': 'Some details are missing or invalid. Check them and try again.',
     'err.invalid salary': 'Enter a valid salary above zero.',
     'err.invalid salary day': 'Salary day must be between 1 and 31.',

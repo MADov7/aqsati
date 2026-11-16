@@ -41,6 +41,7 @@ registerStrings({
     'rep.thStatus': 'الحالة',
     'rep.total': 'المجموع',
     'rep.nOf': '{n} من {total}',
+    'rep.nOpen': '{n} · مفتوح',
     'rep.stPaid': 'مدفوع ✓',
     'rep.stPast': 'فات موعده',
     'rep.stToday': 'اليوم',
@@ -97,6 +98,7 @@ registerStrings({
     'rep.thStatus': 'Status',
     'rep.total': 'Total',
     'rep.nOf': '{n} of {total}',
+    'rep.nOpen': '{n} · open-ended',
     'rep.stPaid': 'Paid ✓',
     'rep.stPast': 'Past due',
     'rep.stToday': 'Today',
@@ -134,6 +136,8 @@ const view = { month: '', charts: [] };
 const root = () => document.getElementById('rep-root');
 const statusText = (s) => t({ paid: 'rep.stPaid', past: 'rep.stPast', today: 'rep.stToday' }[s] || 'rep.stUpcoming');
 const statusTone = (s) => ({ paid: 'ok', past: 'warn', today: 'gold' }[s] || 'none');
+/** «3 من 6», or «3 · مفتوح» for an open-ended plan (it has no total). */
+const nOf = (e) => (e.open ? t('rep.nOpen', { n: e.n }) : t('rep.nOf', { n: e.n, total: e.total }));
 
 function initialMonth() {
   try {
@@ -265,7 +269,7 @@ function sheetHTML(r) {
       <td class="nowrap">${esc(fmt.day(e.date))}</td>
       <th scope="row"><span class="rep-prov"><span class="dot c-${e.color}" aria-hidden="true"></span>${esc(fmt.provider(e.provider))}</span></th>
       <td class="rep-desc" dir="auto">${esc(e.title || '—')}</td>
-      <td class="num">${esc(t('rep.nOf', { n: e.n, total: e.total }))}</td>
+      <td class="num">${esc(nOf(e))}</td>
       <td class="num">${esc(fmt.money(e.amount))}</td>
       <td><span class="chip chip-${statusTone(e.status)}">${esc(statusText(e.status))}</span></td>
     </tr>`).join('');
@@ -415,7 +419,7 @@ function exportCSV() {
   const rows = [t('rep.csvHead').split('|')];
   for (const e of r.events) {
     // «1 من 6» / '1 of 6' — never '1/6', which Excel and Sheets turn into a date
-    rows.push([e.date, fmt.provider(e.provider), e.title, t('rep.nOf', { n: e.n, total: e.total }), e.amount.toFixed(3), statusText(e.status)]);
+    rows.push([e.date, fmt.provider(e.provider), e.title, nOf(e), e.amount.toFixed(3), statusText(e.status)]);
   }
   rows.push(['', '', '', t('rep.total'), r.totals.total.toFixed(3), '']);
   download(`aqsati-report-${r.key}.csv`, `﻿${toCSV(rows)}`, 'text/csv;charset=utf-8');

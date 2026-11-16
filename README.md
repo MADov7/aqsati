@@ -56,7 +56,8 @@
   - على جهازك: `server.mjs` (نفس الكود).
 - **البيانات بـ MongoDB:** `profiles` و `installments` و `payments` (البيانات)، و `users` و `sessions` و `login_attempts` (الحسابات). ولا مفتاح يوصل للمتصفح.
   - `profiles { _id: owner, salary, safeLimit, salaryDay: 1..31 | null }`
-  - `installments { _id: uuid, token: owner, provider, title, monthlyAmount, dueDay, remainingCount, firstDueDate }`
+  - `installments { _id: uuid, token: owner, provider, title, monthlyAmount, dueDay, firstDueDate, remainingMode: 'count' | 'amount' | 'open', remainingCount: 1..360 | null, lastAmount: KWD | null }`
+    - «كم باقي؟» اختياري، والمستخدم يختار وش يعرف: `'count'` عدد الأقساط (الافتراضي، والمستندات القديمة بدون `remainingMode` تنقرا كذا) · `'amount'` المبلغ الباقي (السيرفر يحسب العدد = ceil(المبلغ ÷ الشهري) و `lastAmount` = آخر دفعة إذا أقل من الشهري) · `'open'` بدون نهاية (`remainingCount: null`، ينحسب كل شهر وما يدخل بالدين ولا بتاريخ الخلاص).
   - `payments { _id: '<owner>|<installmentId>|<YYYY-MM>', token: owner, installmentId, month, paidAt }` — صف = «هالقسط مدفوع لهالشهر»، والـ `_id` يخلي التعليم idempotent. فهرس `{ token: 1, month: 1 }`.
   - `owner` = token الضيف (uuid) أو `u:<userId>` للحساب. كل استعلام مربوط بالـ owner، فما أحد يشوف أو يعدّل بيانات غيره.
 - النسخة الأولى (اليوم السادس) كانت على Supabase: `supabase/schema-day6-supabase.sql`.
@@ -80,7 +81,7 @@
 |---|---|---|
 | `aqsati_state` | `p_token` | STATE |
 | `aqsati_save` | `p_salary`, `p_safe_limit`, `p_salary_day` (اختياري: 1..31، أو `null` يمسحه، وإذا ما انرسل يظل نفسه) | STATE |
-| `aqsati_add` / `aqsati_update` | `p_provider`, `p_title`, `p_monthly`, `p_due_day`, `p_remaining`, `p_first_due` (+ `p_id` للتعديل؛ التعديل يقبل `p_first_due` المحفوظ نفسه حتى لو قديم، فتعديل العنوان ما يغيّر الجدول) | STATE |
+| `aqsati_add` / `aqsati_update` | `p_provider`, `p_title`, `p_monthly`, `p_due_day`, `p_remaining_mode` (`'count'` / `'amount'` / `'open'`؛ إذا ما انرسل = `'count'` للنسخ القديمة), `p_remaining` (لازم بـ `'count'`: 1..360)، `p_amount_left` (لازم بـ `'amount'`: المبلغ الباقي من `p_first_due` وطالع، والسيرفر يحسب منه العدد وآخر دفعة — ما ياخذ عدد من المتصفح)، و `'open'` ما يحتاج ولا واحد، `p_first_due` (+ `p_id` للتعديل؛ التعديل يقبل `p_first_due` المحفوظ نفسه حتى لو قديم، فتعديل العنوان ما يغيّر الجدول) | STATE |
 | `aqsati_remove` | `p_id` — يحذف القسط **وكل دفعاته** | STATE |
 | `aqsati_mark_paid` | `p_id`, `p_month` (`'YYYY-MM'`، من 24 شهر ورا لين شهر قدام — بتوقيت الكويت مهما كان توقيت السيرفر), `p_paid` (`true` / `false`) | STATE |
 | `auth_signup` / `auth_login` | `email`, `password`, `p_token` | STATE + كوكي |
@@ -90,12 +91,12 @@
 
 كل دوال `aqsati_*` تاخذ `p_token` للضيف (والصفحة تضيفه لحالها)؛ إذا فيه جلسة السيرفر يتجاهله.
 
-STATE = `{ profile: { salary, safe_limit, salary_day: 1..31 | null } | null, installments: [{ id, provider, title, monthly_amount, due_day, remaining_count, first_due_date, created_at }], payments: [{ installment_id, month: 'YYYY-MM', paid_at }] (آخر 24 شهر، دفعات أقساطك بس), user: { email } | null }`.
+STATE = `{ profile: { salary, safe_limit, salary_day: 1..31 | null } | null, installments: [{ id, provider, title, monthly_amount, due_day, remaining_count (null للمفتوح), first_due_date, created_at, remaining_mode: 'count' | 'amount' | 'open', last_amount: number | null }], payments: [{ installment_id, month: 'YYYY-MM', paid_at }] (آخر 24 شهر، دفعات أقساطك بس), user: { email } | null }`.
 
 - `aqsati_mark_paid` idempotent: تعليم نفس الشهر مرتين يخلي صف واحد (و `paid_at` الأول)، وإلغاء شي مو معلّم ما يضر. `p_id` مو لك = ما يتغير شي (مثل التعديل والحذف).
 - كل المدخلات لازم تكون نص أو رقم: أي object أو array (مثل `{ "$gt": 0 }`) ينرفض، فما فيه NoSQL injection.
 
-رموز الأخطاء: `token required`، `token and id required`، `invalid input` / `invalid <field>`، `invalid first due date`، `too many installments`، `invalid salary` / `invalid safe limit`، `invalid salary day`، `invalid month`، `invalid paid`، `not logged in`، `invalid email`، `weak password`، `email taken`، `invalid credentials`، `too many attempts` (429)، `bad origin` (403)، `config` (500)، `db_unavailable` (503). كلها `400` إلا المذكور.
+رموز الأخطاء: `token required`، `token and id required`، `invalid input` / `invalid <field>` (منها `invalid remainingMode`، `invalid remaining`، `invalid amountLeft`)، `invalid first due date`، `too many installments`، `invalid salary` / `invalid safe limit`، `invalid salary day`، `invalid month`، `invalid paid`، `not logged in`، `invalid email`، `weak password`، `email taken`، `invalid credentials`، `too many attempts` (429)، `bad origin` (403)، `config` (500)، `db_unavailable` (503). كلها `400` إلا المذكور.
 
 ## الإعدادات (بدون أسرار بالكود)
 

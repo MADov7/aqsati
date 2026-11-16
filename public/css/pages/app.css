@@ -74,6 +74,8 @@
 }
 .free-meter-legend b, .free-meter-legend .num { color: #fff; }
 .free-of { opacity: 0.9; }
+/* open-ended plans are not in the countdown: one small line says so (inherits the feature card's light text) */
+.free-note { margin: var(--s-3) 0 0; font-size: 0.84rem; line-height: 1.5; }
 
 /* ---------- upcoming ---------- */
 .list.is-static > .item, .badge-grid.is-static .medal { animation: none; }

@@ -241,6 +241,12 @@ html[dir='rtl'] .plan-range input[type='range']::-webkit-slider-runnable-track {
 .plan-meta { margin: 2px 0 0; color: var(--text-2); font-size: 0.86rem; }
 .plan-when { grid-area: when; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding-top: 6px; border-top: 1px dashed var(--line); }
 .plan-instead { color: var(--text-2); font-size: var(--fs-sm); text-decoration: line-through; text-decoration-color: var(--text-3); }
+/* open-ended plans: listed aside, not in the plan (same card look, no rank / finish date) */
+.plan-open .plan-item { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'dot main'; background: var(--surface-2); border-style: dashed; }
+.plan-open-only { margin: 0; color: rgba(255, 255, 255, 0.9); line-height: 1.6; }
+/* the radios of .seg stay invisible (opacity 0): dim their label text, and the range / switch themselves */
+.plan-controls input:disabled { cursor: not-allowed; }
+.plan-controls input:disabled + span, .plan-controls input[type='range']:disabled, .plan-controls .switch input:disabled { opacity: 0.55; }
 
 /* ---------- empty state illustration ---------- */
 .ins-empty { padding-block: var(--s-8); }

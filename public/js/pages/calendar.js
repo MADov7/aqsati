@@ -7,7 +7,7 @@ import {
 } from '../core.js';
 import * as C from '../../calc.js';
 import { monthGrid, monthEvents, eventsByDay, monthTotals, weekdayOf, providerColor } from '../logic/schedule.js';
-import { buildICS, remainingOccurrences } from '../logic/ics.js';
+import { buildICS, remainingOccurrences, openSeries } from '../logic/ics.js';
 
 registerStrings({
   ar: {
@@ -34,6 +34,9 @@ registerStrings({
     'cal.monthNone': 'ما عليك أقساط بهالشهر — شهر مرتاح.',
     'cal.payN': 'الدفعة {n} من {total}',
     'cal.lastPay': 'آخر دفعة',
+    'cal.payOpen': 'دفعة شهرية — بدون نهاية',
+    // n = how many (agreement: قسط واحد مفتوح يتكرر · قسطين مفتوحين · 3 أقساط مفتوحة تتكرر)
+    'cal.icsOpen': (v) => `+ ${v.count} ${v.n === 1 ? 'مفتوح يتكرر' : v.n === 2 ? 'مفتوحين يتكررون' : 'مفتوحة تتكرر'} كل شهر بدون نهاية.`,
     'cal.paidCheck': 'دفعته',
     'cal.paidCheckAria': 'دفعت قسط {provider} لشهر {month}',
     'cal.outOfRange': 'تقدر تعلّم الدفع لين الشهر الجاي بس.',
@@ -90,6 +93,8 @@ registerStrings({
     'cal.monthNone': 'Nothing due this month — enjoy it.',
     'cal.payN': 'Payment {n} of {total}',
     'cal.lastPay': 'Last payment',
+    'cal.payOpen': 'Monthly — no end date',
+    'cal.icsOpen': (v) => `+ ${v.n === 1 ? '1 open-ended installment' : `${v.n} open-ended installments`}, repeating every month.`,
     'cal.paidCheck': 'Paid',
     'cal.paidCheckAria': 'I paid the {provider} installment for {month}',
     'cal.outOfRange': 'You can mark payments up to next month only.',
@@ -192,8 +197,9 @@ function statusChip(ev, today) {
 }
 
 function dueRow(ev, today, { withDate = false, scope = 'day' } = {}) {
-  const meta = [t('cal.payN', { n: ev.n, total: ev.total })];
-  if (ev.last) meta.push(t('cal.lastPay'));
+  // open-ended: every month, no «n of total»; the final payment (maybe partial) is marked «آخر دفعة»
+  const meta = ev.open ? [t('cal.payOpen')] : [t('cal.payN', { n: ev.n, total: ev.total })];
+  if (!ev.open && ev.last) meta.push(t('cal.lastPay'));
   const markable = canMark(ev.month);
   const key = `pay-${scope}-${ev.id}-${ev.month}`; // the same due can be in the day panel AND the agenda
   return `
@@ -249,7 +255,11 @@ function render() {
   const byDay = eventsByDay(events);
   const totals = monthTotals(events);
   const upcoming = remainingOccurrences(st.installments, { today, payments: st.payments });
-  if (icsBtn) icsBtn.disabled = upcoming.length === 0;
+  const series = openSeries(st.installments, { today, payments: st.payments });
+  const hasIcs = upcoming.length > 0 || series.length > 0;
+  if (icsBtn) icsBtn.disabled = !hasIcs;
+  const icsHint = t('cal.icsHint', { n: t('cal.dues', { n: upcoming.length }) })
+    + (series.length ? ` ${t('cal.icsOpen', { count: fmt.count(series.length), n: series.length })}` : '');
 
   const active = document.activeElement;
   const focusKey = active && el.contains(active) ? active.getAttribute('data-focus-key') : null;
@@ -279,14 +289,14 @@ function render() {
       <section class="lg-col-5 card cal-ics" aria-labelledby="ics-title">
         <div class="card-head">
           <span class="card-ico gold" aria-hidden="true">${IC.phone}</span>
-          <div><h2 id="ics-title">${esc(t('cal.icsTitle'))}</h2><p class="hint">${esc(t('cal.icsHint', { n: t('cal.dues', { n: upcoming.length }) }))}</p></div>
+          <div><h2 id="ics-title">${esc(t('cal.icsTitle'))}</h2><p class="hint">${esc(icsHint)}</p></div>
         </div>
         <ol class="ics-steps">
           <li>${esc(t('cal.icsStep1'))}</li>
           <li>${esc(t('cal.icsStep2'))}</li>
           <li>${esc(t('cal.icsStep3'))}</li>
         </ol>
-        <button type="button" class="btn btn-gold btn-block" data-ics data-focus-key="ics-card"${upcoming.length ? '' : ' disabled'}>${IC.calPlus}<span>${esc(t('cal.icsBtn'))}</span></button>
+        <button type="button" class="btn btn-gold btn-block" data-ics data-focus-key="ics-card"${hasIcs ? '' : ' disabled'}>${IC.calPlus}<span>${esc(t('cal.icsBtn'))}</span></button>
       </section>
     </div>`;
 
@@ -462,7 +472,8 @@ function downloadICS() {
   const st = store.state;
   const today = C.todayISO();
   const occ = remainingOccurrences(st.installments, { today, payments: st.payments });
-  if (!occ.length) {
+  const series = openSeries(st.installments, { today, payments: st.payments });
+  if (!occ.length && !series.length) {
     toast(t('cal.icsNone'), 'warn');
     return;
   }
@@ -472,11 +483,18 @@ function downloadICS() {
     payments: st.payments,
     calName: t('app.name'),
     summary: en ? (ev) => `${fmt.provider(ev.inst.provider)} installment — ${C.fmtKWDEn(ev.amount)}` : undefined,
-    description: en ? (ev) => `${ev.inst.title ? `${ev.inst.title}\n` : ''}Payment ${ev.n} of ${ev.total} · Aqsati` : undefined,
+    description: en ? (ev) => {
+      const head = ev.inst.title ? `${ev.inst.title}\n` : '';
+      if (ev.open) return `${head}Monthly, no end date · Aqsati`;
+      if (!ev.last) return `${head}Payment ${ev.n} of ${ev.total} · Aqsati`;
+      // a partial final payment says its own amount
+      const partial = ev.amount < C.round3(Number(ev.inst.monthly_amount)) ? ` (${C.fmtKWDEn(ev.amount)})` : '';
+      return `${head}Payment ${ev.n} of ${ev.total} — last payment${partial} · Aqsati`;
+    } : undefined,
     alarm: en ? (ev) => `Tomorrow: ${fmt.provider(ev.inst.provider)} installment — ${C.fmtKWDEn(ev.amount)}` : undefined,
   });
   download('aqsati-installments.ics', text, 'text/calendar;charset=utf-8');
-  toast(t('cal.icsDone', { n: t('cal.dues', { n: occ.length }) }), 'ok');
+  toast(t('cal.icsDone', { n: t('cal.dues', { n: occ.length }) }) + (series.length ? ` ${t('cal.icsOpen', { count: fmt.count(series.length), n: series.length })}` : ''), 'ok');
 }
 
 async function togglePaid(input) {

@@ -108,3 +108,44 @@ test('edge cases: nothing left, unknown strategy, huge extra', () => {
   assert.equal(big.monthsToFree, 2);
   assert.equal(big.monthsSaved, 10);
 });
+
+// ---------- remaining modes: open-ended stays out of the plan; the partial final payment is respected ----------
+
+import { openEndedDebts } from '../public/js/logic/payoff.js';
+
+const OPEN = { id: 'O', provider: 'بطاقة ائتمانية', title: '', monthly_amount: 40, due_day: 10, remaining_count: null, remaining_mode: 'open', last_amount: null, first_due_date: '2026-09-10' };
+const PART = { id: 'P', provider: 'تابي', title: 'لابتوب', monthly_amount: 25, due_day: 25, remaining_count: 7, remaining_mode: 'amount', last_amount: 12.5, first_due_date: '2026-11-25' };
+
+test('open-ended installments are not debts: excluded from the plan and listed aside', () => {
+  const plan = simulatePlan([...ALL, OPEN], { today: TODAY });
+  assert.ok(!plan.debts.some((d) => d.id === 'O'));
+  assert.equal(plan.totalDebt, 2730);
+  assert.deepEqual(plan.openEnded.map((d) => d.id), ['O']);
+  assert.equal(plan.schedule[0].amount, 250, 'the plan schedule is finite installments only (A 50 + B 200 in Nov)');
+  assert.equal(simulatePlan([OPEN], { today: TODAY }), null);
+  assert.equal(simulatePlan([DONE, OPEN], { today: TODAY }), null);
+  assert.deepEqual(simulatePlan(ALL, { today: TODAY }).openEnded, []);
+  assert.deepEqual(openEndedDebts([...ALL, OPEN], TODAY), [
+    { id: 'O', provider: 'بطاقة ائتمانية', title: '', monthly: 40, nextDue: '2026-12-10', dueDay: 10 },
+  ]);
+  const two = openEndedDebts([{ ...OPEN, id: 'Z', monthly_amount: 10 }, OPEN, { ...OPEN, id: 'A2' }], TODAY);
+  assert.deepEqual(two.map((d) => d.id), ['A2', 'O', 'Z'], 'biggest monthly first, then id');
+  assert.ok(!activeDebts([OPEN], TODAY).length);
+});
+
+test('amount mode: the partial final payment is the last month of the plan', () => {
+  const [d] = activeDebts([PART], TODAY);
+  assert.deepEqual([d.remainingTotal, d.lastAmount, d.remaining, d.lastDue], [162.5, 12.5, 7, '2027-05-25']);
+  assert.equal(activeDebts([A], TODAY)[0].lastAmount, 50);
+  const natural = simulatePlan([PART], { today: TODAY, extra: 0 });
+  assert.equal(natural.schedule.length, 7);
+  assert.deepEqual(natural.schedule.at(-1), { key: '2027-05', amount: 12.5 });
+  assert.equal(natural.debtFreeKey, '2027-05');
+  assert.equal(natural.monthsSaved, 0);
+  const fast = simulatePlan([PART], { today: TODAY, extra: 50 });
+  assert.deepEqual(
+    [fast.debts[0].finishKey, fast.debts[0].finishDate, fast.monthsSaved, fast.totalDebt],
+    ['2027-01', '2027-01-25', 4, 162.5],
+  );
+  assert.deepEqual(fast.schedule.map((m) => m.amount), [75, 75, 12.5]);
+});

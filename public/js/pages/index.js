@@ -491,7 +491,7 @@ function renderChips() {
     }
     const next = s.active[0];
     set('chip-b-label', t('home.chipNext', { when: fmt.daysLeft(next.daysLeft) }));
-    set('chip-b-value', fmt.money(next.monthly));
+    set('chip-b-value', fmt.money(next.nextAmount ?? next.monthly));
   } else {
     set('chip-a-label', t('home.chipRatio'));
     set('chip-a-value', t('home.chipEx'));
@@ -550,8 +550,8 @@ function renderPhone() {
     monthly = s.monthlyTotal;
     ratio = s.ratio;
     free = s.freeAfter;
-    rows = s.active.slice(0, 3).map((i) => ({ provider: i.provider, monthly: i.monthly, daysLeft: i.daysLeft }));
-    lastMonth = s.active.reduce((max, i) => (i.lastDue && i.lastDue > max ? i.lastDue : max), '').slice(0, 7);
+    rows = s.active.slice(0, 3).map((i) => ({ provider: i.provider, monthly: i.nextAmount ?? i.monthly, daysLeft: i.daysLeft }));
+    lastMonth = s.active.some((i) => i.open) ? '' : s.active.reduce((max, i) => (i.lastDue && i.lastDue > max ? i.lastDue : max), '').slice(0, 7);
   } else {
     monthly = C.round3(EXAMPLE.rows.reduce((sum, r) => sum + r.monthly, 0));
     ratio = (monthly / EXAMPLE.salary) * 100;

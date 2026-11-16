@@ -9,6 +9,10 @@ import {
 import * as C from '../../calc.js';
 import { passwordStrength, MIN_LENGTH, MAX_LENGTH } from '../logic/password-strength.js';
 import { toCSV, installmentRows, exportFilename } from '../logic/export-csv.js';
+import {
+  getNotifySettings, notifySupport, enableNotify, disableNotify, setNotifyMode, sendTestNotification, checkDues,
+  ensureBackgroundSync, refreshMirror, nextReminder,
+} from '../logic/notify.js';
 
 registerStrings({
   ar: {
@@ -110,6 +114,12 @@ registerStrings({
     'acc.csv.paidCount': 'عدد الأشهر المدفوعة',
     'acc.csv.active': 'شغّال',
     'acc.csv.done': 'خالص',
+    'acc.csv.mode': 'طريقة الإدخال',
+    'acc.csv.lastAmount': 'آخر دفعة (د.ك)',
+    'acc.csv.open': 'مفتوح',
+    'acc.csv.modeCount': 'عدد الأقساط',
+    'acc.csv.modeAmount': 'المبلغ الباقي',
+    'acc.csv.modeOpen': 'بدون نهاية',
 
     'acc.dangerTitle': 'منطقة الخطر',
     'acc.dangerDesc': 'حذف الحساب نهائي: ينحذف حسابك وكل أقساطك وراتبك وسجل الدفع، وما نقدر نرجعها.',
@@ -225,6 +235,12 @@ registerStrings({
     'acc.csv.paidCount': 'Paid months count',
     'acc.csv.active': 'Active',
     'acc.csv.done': 'Finished',
+    'acc.csv.mode': 'Entered as',
+    'acc.csv.lastAmount': 'Last payment (KWD)',
+    'acc.csv.open': 'Open-ended',
+    'acc.csv.modeCount': 'Payments left',
+    'acc.csv.modeAmount': 'Amount left',
+    'acc.csv.modeOpen': 'Open-ended',
 
     'acc.dangerTitle': 'Danger zone',
     'acc.dangerDesc': 'Deleting your account is permanent: your account, installments, salary and payment history are removed and can’t be recovered.',
@@ -522,13 +538,14 @@ function exportCsv() {
     return;
   }
   const today = C.todayISO();
-  const headers = ['provider', 'title', 'monthly', 'dueDay', 'first', 'last', 'total', 'left', 'leftAmount', 'status', 'paidMonths', 'paidCount']
+  const headers = ['provider', 'title', 'monthly', 'dueDay', 'first', 'last', 'total', 'left', 'leftAmount', 'status', 'paidMonths', 'paidCount', 'mode', 'lastAmount']
     .map((k) => t(`acc.csv.${k}`));
   try {
     const rows = installmentRows(st, today, {
       headers,
       provider: fmt.provider,
-      status: { active: t('acc.csv.active'), done: t('acc.csv.done') },
+      status: { active: t('acc.csv.active'), done: t('acc.csv.done'), open: t('acc.csv.open') },
+      modes: { count: t('acc.csv.modeCount'), amount: t('acc.csv.modeAmount'), open: t('acc.csv.modeOpen') },
     });
     const blob = new Blob([toCSV(rows)], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -605,6 +622,180 @@ function bindLogout() {
   });
 }
 
+// ---------- reminders («التنبيهات», public/js/logic/notify.js) ----------
+
+registerStrings({
+  ar: {
+    'ntf.title': 'التنبيهات',
+    'ntf.desc': 'نذكرك بالقسط قبل لا يجي موعده، عشان ما يفوتك ولا قسط.',
+    'ntf.switch': 'نبهني قبل موعد القسط',
+    'ntf.when': 'متى أذكرك؟',
+    'ntf.before': 'قبل بيوم',
+    'ntf.day': 'يوم القسط',
+    'ntf.honest': 'التنبيه يوصلك لما تفتح أقساطي. وعلى الجوال، إذا ثبّت الموقع كتطبيق (Chrome على أندرويد)، يذكرك بالخلفية بعد حتى لو ما فتحته.',
+    'ntf.test': 'جرّب تنبيه الحين',
+    'ntf.onTitle': 'التنبيهات شغّالة',
+    'ntf.onBefore': 'بنذكرك قبل موعد كل قسط بيوم.',
+    'ntf.onDay': 'بنذكرك يوم القسط نفسه.',
+    'ntf.next': 'التذكير الجاي {when}: {what} (الموعد {due})',
+    'ntf.whenOn': 'يوم {day}',
+    'ntf.whatOne': 'قسط {provider} {amount}',
+    'ntf.whatMany': '{count} بـ {amount}',
+    'ntf.nextNone': 'ما عندك قسط مستحق بالشهرين الجايين.',
+    'ntf.bgOn': 'وبالخلفية بعد ✓ — حتى لو ما فتحت التطبيق.',
+    'ntf.bgOff': 'حالياً يذكرك لما تفتح الموقع. عشان يذكرك بالخلفية، ثبّت الموقع كتطبيق على جوالك (Chrome على أندرويد: القائمة ← «تثبيت التطبيق»).',
+    'ntf.bgNo': 'هالمتصفح يذكرك لما تفتح الموقع بس، ما يدعم التذكير بالخلفية.',
+    'ntf.asking': 'نطلب الإذن من المتصفح… اختار «سماح».',
+    'ntf.denied': 'المتصفح مانع التنبيهات لهالموقع. فعّلها من إعدادات الموقع بالمتصفح (رمز القفل جنب العنوان)، وبعدين شغّل المفتاح مرة ثانية.',
+    'ntf.dismissed': 'ما سمحت للتنبيهات. شغّل المفتاح مرة ثانية واختار «سماح».',
+    'ntf.unsupported': 'هالمتصفح ما يدعم التنبيهات. على الآيفون: ثبّت الموقع من زر المشاركة ← «إضافة إلى الشاشة الرئيسية» وافتحه من هناك، أو جرّب Chrome.',
+    'ntf.enabled': 'تمام، بنذكرك قبل مواعيد أقساطك ✓',
+    'ntf.disabled': 'وقّفنا التنبيهات.',
+    'ntf.testSent': 'أرسلنا تنبيه تجريبي ✓ شوفه بشريط التنبيهات.',
+    'ntf.testFail': 'ما قدرنا نرسل التنبيه. تأكد إن التنبيهات مسموحة للموقع.',
+  },
+  en: {
+    'ntf.title': 'Reminders',
+    'ntf.desc': 'We remind you before an installment is due, so you never miss one.',
+    'ntf.switch': 'Remind me before an installment is due',
+    'ntf.when': 'When should we remind you?',
+    'ntf.before': 'A day before',
+    'ntf.day': 'On the day',
+    'ntf.honest': 'Reminders show up when you open Aqsati. On a phone where the site is installed as an app (Chrome on Android), they come in the background too, even if you don’t open it.',
+    'ntf.test': 'Send a test reminder',
+    'ntf.onTitle': 'Reminders are on',
+    'ntf.onBefore': 'We’ll remind you a day before each installment is due.',
+    'ntf.onDay': 'We’ll remind you on the day each installment is due.',
+    'ntf.next': 'Next reminder {when}: {what} (due {due})',
+    'ntf.whenOn': 'on {day}',
+    'ntf.whatOne': '{provider} {amount}',
+    'ntf.whatMany': '{count}, {amount}',
+    'ntf.nextNone': 'Nothing is due in the next two months.',
+    'ntf.bgOn': 'In the background too ✓ — even when the app is closed.',
+    'ntf.bgOff': 'For now they come when you open the site. To get them in the background, install the site as an app on your phone (Chrome on Android: menu → “Install app”).',
+    'ntf.bgNo': 'This browser reminds you only when you open the site; it has no background reminders.',
+    'ntf.asking': 'Asking your browser for permission… choose “Allow”.',
+    'ntf.denied': 'Your browser blocks notifications for this site. Allow them in the site settings (the lock icon next to the address), then turn the switch on again.',
+    'ntf.dismissed': 'You didn’t allow notifications. Turn the switch on again and choose “Allow”.',
+    'ntf.unsupported': 'This browser doesn’t support notifications. On iPhone: add the site to your Home Screen (Share → “Add to Home Screen”) and open it from there, or try Chrome.',
+    'ntf.enabled': 'Done — we’ll remind you before your installments are due ✓',
+    'ntf.disabled': 'Reminders are off.',
+    'ntf.testSent': 'Test reminder sent ✓ Check your notifications.',
+    'ntf.testFail': 'We couldn’t send it. Make sure notifications are allowed for this site.',
+  },
+});
+
+const ntf = { busy: false, want: false, reason: '', background: null, html: null };
+
+const NTF_ICONS = {
+  ok: '<path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z"/><path d="m8.5 12.2 2.3 2.3 4.7-4.8"/>',
+  warn: '<path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17.2v.1"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>',
+};
+
+function notifyBox(tone, icon, lines) {
+  const [first, ...rest] = lines.filter(Boolean);
+  return `<div class="alert tone-${tone}"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${NTF_ICONS[icon]}</svg>`
+    + `<div class="notify-msg"><p><strong>${esc(first)}</strong></p>${rest.map((l) => `<p>${esc(l)}</p>`).join('')}</div></div>`;
+}
+
+function nextReminderLine(mode) {
+  if (!store.loaded) return '';
+  const today = C.todayISO();
+  const next = nextReminder(store.state, today, mode);
+  if (!next) return t('ntf.nextNone');
+  const days = C.daysBetween(today, next.date);
+  const when = days <= 1 ? fmt.daysLeft(days) : t('ntf.whenOn', { day: fmt.day(next.date) });
+  const total = next.dues.reduce((s, d) => s + d.amount, 0);
+  const money = (x) => fmt.money(x).replace(' ', ' '); // «45.500 د.ك» never splits across lines
+  const what = next.dues.length === 1
+    ? t('ntf.whatOne', { provider: fmt.provider(next.dues[0].provider), amount: money(next.dues[0].amount) })
+    : t('ntf.whatMany', { count: fmt.count(next.dues.length), amount: money(total) });
+  return t('ntf.next', { when, what, due: fmt.day(next.dues[0].date) });
+}
+
+function renderNotify() {
+  const sw = $('#notify-on');
+  if (!sw) return;
+  const s = getNotifySettings();
+  const perm = notifySupport();
+  const on = s.on && perm === 'granted';
+  sw.checked = ntf.busy ? ntf.want : on;
+  sw.disabled = ntf.busy || perm === 'unsupported';
+  $$('input[name="notifyWhen"]').forEach((r) => {
+    r.checked = r.value === s.mode;
+    r.disabled = !on || ntf.busy;
+  });
+  $('#notify-when').classList.toggle('is-off', !on);
+  $('#notify-actions').hidden = !on;
+  $('.notify-honest').hidden = on; // when on, the status box says exactly where reminders reach this device
+
+  let html = '';
+  if (ntf.busy && ntf.want) html = notifyBox('info', 'info', [t('ntf.asking')]);
+  else if (perm === 'unsupported') html = notifyBox('info', 'info', [t('ntf.unsupported')]);
+  else if (perm === 'denied') html = notifyBox('warn', 'warn', [t('ntf.denied')]);
+  else if (!on && ntf.reason === 'dismissed') html = notifyBox('warn', 'warn', [t('ntf.dismissed')]);
+  else if (on) {
+    const bg = ntf.background === 'on' ? t('ntf.bgOn') : ntf.background === 'unsupported' ? t('ntf.bgNo') : t('ntf.bgOff');
+    html = notifyBox('ok', 'ok', [t('ntf.onTitle'), t(s.mode === 'day' ? 'ntf.onDay' : 'ntf.onBefore'), nextReminderLine(s.mode), bg]);
+  }
+  if (ntf.html !== html) { // the box is aria-live: only touch it when the message changes
+    $('#notify-status').innerHTML = html;
+    ntf.html = html;
+  }
+}
+
+async function toggleNotify() {
+  const sw = $('#notify-on');
+  ntf.want = sw.checked;
+  ntf.reason = '';
+  ntf.busy = true;
+  renderNotify();
+  try {
+    if (ntf.want) {
+      const mode = $('input[name="notifyWhen"]:checked')?.value;
+      const r = await enableNotify(mode);
+      if (r.ok) {
+        ntf.background = r.background;
+        toast(t('ntf.enabled'), 'ok');
+        checkDues(store.state).catch(() => {}); // something due tomorrow? it shows right away
+      } else {
+        ntf.reason = r.reason;
+      }
+    } else {
+      await disableNotify();
+      ntf.background = null;
+      toast(t('ntf.disabled'));
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    ntf.busy = false;
+    renderNotify();
+  }
+}
+
+function bindNotify() {
+  $('#notify-on')?.addEventListener('change', () => { toggleNotify(); });
+  $$('input[name="notifyWhen"]').forEach((r) => r.addEventListener('change', async () => {
+    if (!r.checked) return;
+    await setNotifyMode(r.value);
+    renderNotify();
+    toast(t(r.value === 'day' ? 'ntf.onDay' : 'ntf.onBefore'), 'ok');
+    checkDues(store.state).catch(() => {});
+  }));
+  $('#notify-test')?.addEventListener('click', async () => {
+    const ok = await sendTestNotification();
+    toast(t(ok ? 'ntf.testSent' : 'ntf.testFail'), ok ? 'ok' : 'error');
+  });
+  window.addEventListener('langchange', () => { refreshMirror(); });
+  // permission changed in the browser's site settings while this page is open
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') renderNotify(); });
+  if (getNotifySettings().on && notifySupport() === 'granted') {
+    ensureBackgroundSync().then((b) => { ntf.background = b; renderNotify(); }).catch(() => {});
+  }
+}
+
 // ---------- render ----------
 
 const GUEST_AVATAR = $('#acc-avatar')?.innerHTML || '';
@@ -659,6 +850,7 @@ function render() {
 
   fillSalary();
   syncPrefs();
+  renderNotify();
 }
 
 // ---------- boot ----------
@@ -669,6 +861,7 @@ bindPrefs();
 bindPasswordTools();
 bindPassword();
 bindLogout();
+bindNotify();
 $('#export-csv')?.addEventListener('click', exportCsv);
 $('#head-export')?.addEventListener('click', exportCsv);
 $('#delete-account')?.addEventListener('click', () => { startDelete().catch((err) => toast(errorText(err), 'error')); });

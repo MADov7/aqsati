@@ -3,8 +3,11 @@
 
 import {
   PROVIDERS, round3, isoDate, parseISO, daysInMonth, nthDueDate, installmentStatus,
-  monthKey, shiftMonthKey, monthsBetween, dueEventsInMonth, paidKeys,
+  monthKey, shiftMonthKey, monthsBetween, dueEventsInMonth, paidKeys, planCount, planTotal,
 } from '../../calc.js';
+
+const fils = (x) => Math.round((Number(x) || 0) * 1000);
+const kwd = (f) => round3(f / 1000);
 
 // ---------- provider colours (categorical slot follows the entity, never its rank) ----------
 
@@ -79,11 +82,14 @@ export function eventStatus(date, paid, today) {
   return 'upcoming';
 }
 
-/** Every payment due in month 'YYYY-MM' with its paid state: sorted by date, then bigger amounts first. */
+/**
+ * Every payment due in month 'YYYY-MM' with its paid state: sorted by date, then bigger amounts first.
+ * amount is that payment's real amount (partial final payment included); open-ended → total null, open true.
+ */
 export function monthEvents(installments, key, payments, today) {
   const set = payments instanceof Set ? payments : paidKeys(payments);
-  return dueEventsInMonth(installments, key).map(({ inst, k, date, amount }) => {
-    const total = Number(inst.remaining_count);
+  return dueEventsInMonth(installments, key).map(({ inst, k, date, amount, last, open }) => {
+    const total = open ? null : planCount(inst);
     const paid = set.has(`${inst.id}|${key}`);
     return {
       id: inst.id,
@@ -91,7 +97,8 @@ export function monthEvents(installments, key, payments, today) {
       k,
       n: k + 1,
       total,
-      last: k === total - 1,
+      last,
+      open,
       date,
       month: key,
       amount,
@@ -138,7 +145,10 @@ export function monthTotals(events) {
 
 // ---------- the next months ----------
 
-/** Total due in each of `months` months from fromKey: [{ key, total, count, ending: [provider…] }]. */
+/**
+ * Total due in each of `months` months from fromKey: [{ key, total, count, ending: [provider…] }].
+ * Open-ended installments are in every month's total and count, and never end.
+ */
 export function timeline(installments, fromKey, months = 12) {
   const out = [];
   for (let i = 0; i < months; i += 1) {
@@ -148,17 +158,25 @@ export function timeline(installments, fromKey, months = 12) {
       key,
       total: round3(events.reduce((s, e) => s + e.amount, 0)),
       count: events.length,
-      ending: events.filter((e) => e.k === Number(e.inst.remaining_count) - 1).map((e) => String(e.inst.provider ?? '')),
+      ending: events.filter((e) => e.last).map((e) => String(e.inst.provider ?? '')),
     });
   }
   return out;
 }
 
-/** Where all debts stand today: totals, the debt-free date and how many months still have a payment. */
+/**
+ * Where all debts stand today: totals, the debt-free date and how many months still have a payment.
+ * → { activeCount (all active, open-ended too), finiteCount, openCount, openMonthly, totalDebt (finite only),
+ *     monthly (all active), debtFreeDate / lastInstallment (finite only, null if none),
+ *     monthsLeft (distinct months with a finite payment left) }
+ */
 export function remainingSummary(installments, today) {
   let totalDebt = 0;
   let monthly = 0;
   let activeCount = 0;
+  let finiteCount = 0;
+  let openCount = 0;
+  let openMonthly = 0;
   let debtFreeDate = null;
   let lastInstallment = null;
   const months = new Set();
@@ -166,22 +184,76 @@ export function remainingSummary(installments, today) {
     const s = installmentStatus(inst, today);
     if (!s.active) continue;
     activeCount += 1;
-    totalDebt += s.remainingTotal;
     monthly += s.monthly;
+    if (s.open) {
+      openCount += 1;
+      openMonthly += s.monthly;
+      continue;
+    }
+    finiteCount += 1;
+    totalDebt += s.remainingTotal;
     if (!debtFreeDate || s.lastDue > debtFreeDate) {
       debtFreeDate = s.lastDue;
       lastInstallment = inst;
     }
-    const total = Number(inst.remaining_count);
-    for (let k = total - s.remaining; k < total; k += 1) months.add(monthKey(nthDueDate(inst, k)));
+    for (let k = s.paidCount; k < s.count; k += 1) months.add(monthKey(nthDueDate(inst, k)));
   }
   return {
     activeCount,
+    finiteCount,
+    openCount,
+    openMonthly: round3(openMonthly),
     totalDebt: round3(totalDebt),
     monthly: round3(monthly),
     debtFreeDate,
     lastInstallment,
     monthsLeft: months.size,
+  };
+}
+
+/**
+ * The dashboard's debt-free countdown (finite installments only; open-ended ones are counted aside).
+ * → { finiteCount (finite, finished too), activeCount (finite active), total (Σ plan totals of finite plans),
+ *     paid (Σ already paid of them), pct, last (latest last due of finite active, null if none),
+ *     left (payments left on finite active), monthsLeft, openCount, openMonthly }
+ */
+export function debtFreeCountdown(installments, today) {
+  let finiteCount = 0;
+  let activeCount = 0;
+  let total = 0;
+  let paid = 0;
+  let last = null;
+  let left = 0;
+  let openCount = 0;
+  let openMonthly = 0;
+  for (const inst of installments || []) {
+    const s = installmentStatus(inst, today);
+    if (s.open) {
+      openCount += 1;
+      openMonthly += fils(s.monthly);
+      continue;
+    }
+    finiteCount += 1;
+    const plan = fils(planTotal(inst));
+    total += plan;
+    paid += plan - fils(s.remainingTotal);
+    if (s.active) {
+      activeCount += 1;
+      left += s.remaining;
+      if (!last || s.lastDue > last) last = s.lastDue;
+    }
+  }
+  return {
+    finiteCount,
+    activeCount,
+    total: kwd(total),
+    paid: kwd(paid),
+    pct: total > 0 ? (paid / total) * 100 : 0,
+    last,
+    left,
+    monthsLeft: last ? monthsBetween(monthKey(today), monthKey(last)) : 0,
+    openCount,
+    openMonthly: kwd(openMonthly),
   };
 }
 
@@ -199,13 +271,14 @@ export function roundPercents(values) {
 
 /**
  * Active installments grouped by provider. measure: 'monthly' (what you pay each month) or 'debt' (what is left).
+ * Open-ended installments count in 'monthly' but have no debt, so 'debt' leaves them out.
  * → [{ provider, value, pct, count, color }] biggest first.
  */
 export function byProvider(installments, today, measure = 'monthly') {
   const groups = new Map();
   for (const inst of installments || []) {
     const s = installmentStatus(inst, today);
-    if (!s.active) continue;
+    if (!s.active || (measure === 'debt' && s.open)) continue;
     const name = String(inst.provider ?? '').trim();
     const g = groups.get(name) || { provider: name, value: 0, count: 0, color: providerColor(name) };
     g.value += measure === 'debt' ? s.remainingTotal : s.monthly;

@@ -135,7 +135,10 @@ test('validators return Arabic errors and clean values', () => {
   assert.deepEqual(Object.keys(bad.errors).sort(), ['dueDay', 'monthly', 'provider', 'remaining']);
   const good = validateInstallmentInput({ provider: ' تابي ', title: 'آيفون', monthly: '٣٣٫٣٣٣٤', dueDay: '٢٥', remaining: '4' });
   assert.equal(good.ok, true);
-  assert.deepEqual(good.value, { provider: 'تابي', title: 'آيفون', monthly: 33.333, dueDay: 25, remaining: 4 });
+  // the value always carries the full shape (no remainingMode → mode 1 'count', the other mode fields null)
+  assert.deepEqual(good.value, {
+    provider: 'تابي', title: 'آيفون', monthly: 33.333, dueDay: 25, remainingMode: 'count', remaining: 4, amountLeft: null, lastAmount: null,
+  });
 
   assert.equal(validateProfileInput({ salary: '1200', limit: '40' }).ok, true);
   assert.equal(validateProfileInput({ salary: '0', limit: '40' }).ok, false);
@@ -243,4 +246,188 @@ test('English and extra Arabic formatting helpers', () => {
   assert.equal(Calc.fmtOverdue(15), 'متأخر 15 يوم');
   assert.equal(Calc.fmtOverdueEn(1), '1 day overdue');
   assert.equal(Calc.fmtOverdueEn(3), '3 days overdue');
+});
+
+// ---------- «كم باقي؟» is optional: three remaining modes (count / amount / open) ----------
+
+const PART = { id: 'P', provider: 'تابي', title: 'لابتوب', monthly_amount: 25, due_day: 25, remaining_count: 7, remaining_mode: 'amount', last_amount: 12.5, first_due_date: '2026-11-25' };
+const OPEN = { id: 'O', provider: 'بطاقة ائتمانية', title: '', monthly_amount: 40, due_day: 10, remaining_count: null, remaining_mode: 'open', last_amount: null, first_due_date: '2026-09-10' };
+const split = (t, m) => Calc.splitAmount(t, m);
+
+test('splitAmount: count = ceil(total / monthly), the final payment is what is left (0 < last ≤ monthly)', () => {
+  assert.deepEqual(split(162.5, 25), { count: 7, last: 12.5, lastAmount: 12.5 });
+  assert.deepEqual(split(150, 25), { count: 6, last: 25, lastAmount: null });
+  assert.deepEqual(split(12.5, 25), { count: 1, last: 12.5, lastAmount: 12.5 });
+  assert.deepEqual(split(0.3, 0.1), { count: 3, last: 0.1, lastAmount: null }, 'no float drift (0.3 / 0.1)');
+  assert.deepEqual(split(1, 0.3), { count: 4, last: 0.1, lastAmount: 0.1 });
+  assert.deepEqual(split(9000, 25), { count: 360, last: 25, lastAmount: null });
+  assert.equal(split(9000.001, 25).count, 361);
+  assert.deepEqual(split(25, 25), { count: 1, last: 25, lastAmount: null }, 'total = one full payment');
+  assert.deepEqual(split(150.001, 25), { count: 7, last: 0.001, lastAmount: 0.001 }, 'a 1-fils final payment is legal');
+  assert.deepEqual(split(1000, 33.333), { count: 31, last: 0.01, lastAmount: 0.01 }, 'bank-rounded monthly: formula unchanged');
+  for (const [t, m] of [[0, 25], [10, 0], ['abc', 5], [-5, 25], [NaN, 25], [Infinity, 25], [null, 25]]) {
+    assert.equal(split(t, m), null, `${t} / ${m}`);
+  }
+  assert.equal(split('١٦٢٫٥', 25), null, 'raw Arabic-digit text must be parsed first');
+  assert.deepEqual(split(Calc.round3(parseAmount('١٦٢٫٥')), 25), { count: 7, last: 12.5, lastAmount: 12.5 });
+  // round trip: the stored plan total splits back into the same count and final payment
+  for (const inst of [PART, { ...PART, monthly_amount: 33.333, remaining_count: 31, last_amount: 0.01 }]) {
+    const back = split(Calc.planTotal(inst), inst.monthly_amount);
+    assert.equal(back.count, inst.remaining_count);
+    assert.equal(back.lastAmount, inst.last_amount);
+  }
+  assert.equal(Calc.planTotal({ ...PART, monthly_amount: 33.333, remaining_count: 31, last_amount: 0.01 }), 1000);
+});
+
+test('validateInstallmentInput: the three modes', () => {
+  const base = { provider: 'تابي', title: '', monthly: '25', dueDay: '25' };
+  // missing mode → count (old clients)
+  const old = validateInstallmentInput({ ...base, remaining: '7' });
+  assert.equal(old.ok, true);
+  assert.deepEqual([old.value.remainingMode, old.value.remaining, old.value.amountLeft, old.value.lastAmount], ['count', 7, null, null]);
+  assert.equal(validateInstallmentInput({ ...base, remainingMode: null, remaining: '3' }).value.remainingMode, 'count');
+
+  const amount = validateInstallmentInput({ ...base, remainingMode: 'amount', amountLeft: '١٦٢٫٥', remaining: '99' });
+  assert.equal(amount.ok, true);
+  assert.deepEqual(
+    [amount.value.remainingMode, amount.value.remaining, amount.value.amountLeft, amount.value.lastAmount],
+    ['amount', 7, 162.5, 12.5],
+    'the count comes from the amount, never from a sent remaining',
+  );
+  const even = validateInstallmentInput({ ...base, remainingMode: 'amount', amountLeft: '9000' });
+  assert.deepEqual([even.ok, even.value.remaining, even.value.lastAmount], [true, 360, null]);
+  for (const bad of ['9000.001', '0', '', 'abc', '-5', '1000000000']) {
+    const r = validateInstallmentInput({ ...base, remainingMode: 'amount', amountLeft: bad });
+    assert.equal(r.ok, false, bad);
+    assert.deepEqual(Object.keys(r.errors), ['amountLeft'], bad);
+  }
+  // amount with a bad monthly: only the monthly error (no split, no throw)
+  const badMonthly = validateInstallmentInput({ ...base, monthly: 'x', remainingMode: 'amount', amountLeft: '100' });
+  assert.deepEqual(Object.keys(badMonthly.errors), ['monthly']);
+  assert.equal(badMonthly.value.remaining, null);
+
+  const open = validateInstallmentInput({ ...base, remainingMode: 'open' });
+  assert.equal(open.ok, true);
+  assert.deepEqual([open.value.remainingMode, open.value.remaining, open.value.amountLeft, open.value.lastAmount], ['open', null, null, null]);
+
+  for (const mode of ['', 'weird', {}, 5]) {
+    const r = validateInstallmentInput({ ...base, remainingMode: mode, remaining: '3' });
+    assert.equal(r.ok, false, String(mode));
+    assert.deepEqual(Object.keys(r.errors), ['remainingMode'], String(mode));
+    assert.equal(r.errors.remainingMode, 'اختار وش تعرف عن الباقي');
+  }
+  // error keys in this order: provider, title, monthly, dueDay, remainingMode, remaining, amountLeft
+  const all = validateInstallmentInput({ provider: '', monthly: '0', dueDay: '0', remainingMode: 'count', remaining: '0' });
+  assert.deepEqual(Object.keys(all.errors), ['provider', 'monthly', 'dueDay', 'remaining']);
+  const allAmount = validateInstallmentInput({ provider: '', monthly: '25', dueDay: '0', remainingMode: 'amount', amountLeft: '0' });
+  assert.deepEqual(Object.keys(allAmount.errors), ['provider', 'dueDay', 'amountLeft']);
+});
+
+test('mode helpers: remainingMode, planCount, paymentAmount, planTotal', () => {
+  assert.equal(Calc.remainingMode({}), 'count');
+  assert.equal(Calc.remainingMode(undefined), 'count');
+  assert.equal(Calc.remainingMode({ remaining_mode: 'weird' }), 'count');
+  assert.equal(Calc.remainingMode({ remaining_mode: 'count' }), 'count');
+  assert.equal(Calc.remainingMode(PART), 'amount');
+  assert.equal(Calc.remainingMode(OPEN), 'open');
+  assert.equal(Calc.isOpenEnded(OPEN), true);
+  assert.equal(Calc.isOpenEnded(PART), false);
+  assert.deepEqual(Calc.REMAINING_MODES, ['count', 'amount', 'open']);
+  assert.equal(Calc.MAX_PAYMENTS, 360);
+
+  assert.equal(Calc.planCount(OPEN), Infinity);
+  assert.equal(Calc.planCount(PART), 7);
+  assert.equal(Calc.planCount({ remaining_count: null }), 0);
+  assert.equal(Calc.paymentAmount(PART, 6), 12.5);
+  assert.equal(Calc.paymentAmount(PART, 5), 25);
+  assert.equal(Calc.paymentAmount(PART, 0), 25);
+  assert.equal(Calc.paymentAmount(OPEN, 99), 40);
+  // a last_amount that is not a real partial payment is ignored (catches the chained `0 < x < m` bug)
+  for (const last of [30, 25, 0, -1, null, undefined, 'x']) assert.equal(Calc.paymentAmount({ ...PART, last_amount: last }, 6), 25, String(last));
+  assert.equal(Calc.planTotal(PART), 162.5);
+  assert.equal(Calc.planTotal(OPEN), null);
+  assert.equal(Calc.planTotal({ ...PART, remaining_count: 0 }), 0);
+  assert.equal(Calc.planTotal({ monthly_amount: 45.5, due_day: 5, remaining_count: 4, first_due_date: '2026-10-05' }), 182);
+});
+
+test('installmentStatus: amount mode with a partial final payment', () => {
+  let s = installmentStatus(PART, '2026-11-15');
+  assert.deepEqual(
+    [s.mode, s.open, s.count, s.paidCount, s.remaining, s.remainingTotal, s.lastDue, s.lastAmount, s.nextAmount],
+    ['amount', false, 7, 0, 7, 162.5, '2027-05-25', 12.5, 25],
+  );
+  s = installmentStatus(PART, '2027-05-01');
+  assert.deepEqual([s.remaining, s.nextDue, s.nextAmount, s.remainingTotal], [1, '2027-05-25', 12.5, 12.5]);
+  s = installmentStatus(PART, '2027-04-26');
+  assert.deepEqual([s.remaining, s.remainingTotal], [1, 12.5]);
+  s = installmentStatus(PART, '2027-04-25');
+  assert.deepEqual([s.remaining, s.remainingTotal, s.nextAmount], [2, 37.5, 25]);
+  s = installmentStatus(PART, '2027-05-26');
+  assert.deepEqual([s.active, s.remaining, s.remainingTotal, s.nextAmount, s.nextDue], [false, 0, 0, null, null]);
+  // mode 1 (old document): the new keys follow and the old ones keep their meaning
+  const old = installmentStatus({ first_due_date: '2026-11-25', due_day: 25, remaining_count: 3, monthly_amount: '50.000' }, '2026-11-26');
+  assert.deepEqual([old.mode, old.open, old.count, old.paidCount, old.remaining, old.remainingTotal, old.lastAmount, old.nextAmount],
+    ['count', false, 3, 1, 2, 100, 50, 50]);
+});
+
+test('installmentStatus: open-ended is always active, with no end and no loop over the years', () => {
+  let s = installmentStatus(OPEN, '2026-11-15');
+  assert.deepEqual(
+    [s.mode, s.open, s.active, s.count, s.remaining, s.remainingTotal, s.lastDue, s.lastAmount, s.nextDue, s.paidCount, s.daysLeft, s.nextAmount],
+    ['open', true, true, null, null, null, null, null, '2026-12-10', 3, 25, 40],
+  );
+  s = installmentStatus(OPEN, '2026-11-10');
+  assert.deepEqual([s.nextDue, s.daysLeft, s.paidCount], ['2026-11-10', 0, 2]);
+  s = installmentStatus({ ...OPEN, first_due_date: '2027-01-10' }, '2026-11-15');
+  assert.deepEqual([s.nextDue, s.paidCount, s.active], ['2027-01-10', 0, true]);
+  const o31 = { ...OPEN, due_day: 31, first_due_date: '2026-10-31' };
+  assert.equal(installmentStatus(o31, '2026-11-30').nextDue, '2026-11-30');
+  assert.equal(installmentStatus(o31, '2027-02-01').nextDue, '2027-02-28');
+  assert.equal(installmentStatus(o31, '2027-03-01').nextDue, '2027-03-31');
+  const ancient = { ...OPEN, first_due_date: '1996-11-10' };
+  const t0 = performance.now();
+  for (let i = 0; i < 1000; i += 1) installmentStatus(ancient, '2026-11-15');
+  assert.ok(performance.now() - t0 < 500, 'computed directly, not by walking 30 years');
+  assert.deepEqual([installmentStatus(ancient, '2026-11-15').nextDue, installmentStatus(ancient, '2026-11-15').paidCount], ['2026-12-10', 361]);
+});
+
+test('monthSummary: open-ended counts every month (never in debt), leftThisMonth uses the real next amount', () => {
+  const s = monthSummary([PART, OPEN], 1000, 40, '2026-11-15');
+  assert.deepEqual(s.active.map((i) => i.id), ['P', 'O']);
+  assert.deepEqual(s.finished, []);
+  assert.equal(s.monthlyTotal, 65);
+  assert.equal(s.totalDebt, 162.5);
+  assert.deepEqual([s.openCount, s.openMonthly, s.finiteCount], [1, 40, 1]);
+  assert.equal(s.leftThisMonth, 25);
+  assert.ok(Math.abs(s.ratio - 6.5) < 1e-9);
+  const may = monthSummary([PART, OPEN], 1000, 40, '2027-05-01');
+  assert.equal(may.leftThisMonth, 52.5, 'the partial final payment (12.5) + the open one (40)');
+  assert.equal(may.monthlyTotal, 65, 'the ratio keeps the full monthly commitment');
+  const after = monthSummary([PART, OPEN], 1000, 40, '2027-06-01');
+  assert.deepEqual(after.finished.map((i) => i.id), ['P']);
+  assert.deepEqual(after.active.map((i) => i.id), ['O']);
+  assert.deepEqual([after.totalDebt, after.monthlyTotal, after.finiteCount, after.openCount], [0, 40, 0, 1]);
+  const none = monthSummary([], 1000, 40, '2026-11-15');
+  assert.deepEqual([none.openCount, none.openMonthly, none.finiteCount], [0, 0, 0]);
+});
+
+test('payments by month, events and schedules follow the mode', () => {
+  assert.equal(Calc.paymentIndexIn(OPEN, '2026-08'), -1);
+  assert.equal(Calc.paymentIndexIn(OPEN, '2026-09'), 0);
+  assert.equal(Calc.paymentIndexIn(OPEN, '2031-09'), 60);
+  assert.equal(Calc.dueInMonth(OPEN, '2031-09'), '2031-09-10');
+  assert.equal(Calc.paymentIndexIn(PART, '2027-05'), 6);
+  assert.equal(Calc.paymentIndexIn(PART, '2027-06'), -1);
+  const may = Calc.dueEventsInMonth([PART, OPEN], '2027-05');
+  assert.deepEqual(may.map((e) => [e.inst.id, e.date, e.amount, e.last, e.open]), [
+    ['O', '2027-05-10', 40, false, true], ['P', '2027-05-25', 12.5, true, false],
+  ]);
+  assert.deepEqual(Calc.dueEventsInMonth([PART], '2027-04').map((e) => [e.amount, e.last]), [[25, false]]);
+  assert.deepEqual(Calc.scheduleFor(OPEN, { limit: 3 }).map((p) => p.date), ['2026-09-10', '2026-10-10', '2026-11-10']);
+  assert.equal(Calc.scheduleFor(OPEN).length, Calc.MAX_PAYMENTS, 'open-ended gives exactly `limit` entries');
+  assert.equal(Calc.scheduleFor(OPEN, { limit: Infinity }).length, Calc.MAX_PAYMENTS, 'never an infinite loop');
+  assert.equal(Calc.scheduleFor(PART).length, 7);
+  assert.deepEqual(Calc.scheduleFor(PART).at(-1), { k: 6, date: '2027-05-25', month: '2027-05', amount: 12.5 });
+  assert.equal(Calc.scheduleFor(PART)[0].amount, 25);
+  assert.equal(Calc.scheduleFor(PART, { limit: 2 }).length, 2);
 });

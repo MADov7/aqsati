@@ -6,6 +6,9 @@
 // Every month each active installment takes its normal payment; the extra amount (plus, with `rollover`,
 // the monthly amounts of installments that already finished) goes to the first installment in the chosen order.
 // Money is counted in fils (1/1000 KWD) as integers, so nothing drifts.
+// Open-ended installments (no end date) are not debts here: they stay out of the plan and are listed aside.
+// A partial final payment (mode 'amount') is respected: the balance is remainingTotal and a month never pays
+// more than what is left.
 
 import { installmentStatus, monthKey, shiftMonthKey, monthsBetween, dueDateIn, round3 } from '../../calc.js';
 
@@ -15,12 +18,15 @@ const fils = (x) => Math.round((Number(x) || 0) * 1000);
 const kwd = (f) => round3(f / 1000);
 const MAX_MONTHS = 600;
 
-/** Active installments as debts: [{ id, provider, title, monthly, remaining, remainingTotal, nextDue, lastDue, dueDay }]. */
+/**
+ * Active finite installments as debts:
+ * [{ id, provider, title, monthly, remaining, remainingTotal, nextDue, lastDue, lastAmount, dueDay }].
+ */
 export function activeDebts(installments, today) {
   const out = [];
   for (const inst of installments || []) {
     const s = installmentStatus(inst, today);
-    if (!s.active) continue;
+    if (!s.active || s.open) continue;
     out.push({
       id: inst.id,
       provider: String(inst.provider ?? ''),
@@ -30,10 +36,29 @@ export function activeDebts(installments, today) {
       remainingTotal: s.remainingTotal,
       nextDue: s.nextDue,
       lastDue: s.lastDue,
+      lastAmount: s.lastAmount,
       dueDay: Number(inst.due_day),
     });
   }
   return out;
+}
+
+/** Active open-ended installments (left out of the plan): [{ id, provider, title, monthly, nextDue, dueDay }], biggest monthly first. */
+export function openEndedDebts(installments, today) {
+  const out = [];
+  for (const inst of installments || []) {
+    const s = installmentStatus(inst, today);
+    if (!s.open) continue;
+    out.push({
+      id: inst.id,
+      provider: String(inst.provider ?? ''),
+      title: String(inst.title ?? ''),
+      monthly: s.monthly,
+      nextDue: s.nextDue,
+      dueDay: Number(inst.due_day),
+    });
+  }
+  return out.sort((a, b) => b.monthly - a.monthly || String(a.id).localeCompare(String(b.id)));
 }
 
 const byId = (a, b) => String(a.id).localeCompare(String(b.id));
@@ -55,11 +80,12 @@ const dueIn = (key, dueDay) => {
 /**
  * Simulate a plan.
  * options: { today, extra = 0 (KWD per month), strategy = 'relief' | 'impact', rollover = false }
- * → null when nothing is left to pay, otherwise
+ * → null when no finite installment is left to pay (open-ended ones are never in a plan), otherwise
  *   { strategy, extra, rollover, startKey, totalDebt,
  *     debts: [{ …debt, order, finishKey, finishDate, naturalKey, naturalDate, monthsSaved }] (in plan order),
  *     debtFreeKey, debtFreeDate, naturalKey, naturalDate, monthsSaved, monthsToFree, naturalMonthsToFree,
- *     schedule: [{ key, amount }] (what leaves your pocket each month under the plan) }
+ *     schedule: [{ key, amount }] (what leaves your pocket each month under the plan; finite installments only),
+ *     openEnded: openEndedDebts(...) (not in the plan) }
  */
 export function simulatePlan(installments, { today, extra = 0, strategy = 'relief', rollover = false } = {}) {
   const debts = activeDebts(installments, today);
@@ -145,5 +171,6 @@ export function simulatePlan(installments, { today, extra = 0, strategy = 'relie
     monthsToFree: monthsBetween(startKey, planLast.finishKey) + 1,
     naturalMonthsToFree: monthsBetween(startKey, naturalLast.naturalKey) + 1,
     schedule,
+    openEnded: openEndedDebts(installments, today),
   };
 }
