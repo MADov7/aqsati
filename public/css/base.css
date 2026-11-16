@@ -448,7 +448,7 @@ html.is-scrolled .site-header::before { background: var(--header-bg-solid); box-
   flex: none;
   width: auto;
   max-width: none;
-  aspect-ratio: 329.8 / 156;
+  aspect-ratio: 317.4 / 145;
   overflow: visible;
 }
 .wordmark.tone-light .wm-word { fill: #fff; }

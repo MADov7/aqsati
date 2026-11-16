@@ -106,9 +106,9 @@ try {
 
 registerStrings({
   ar: {
-    'app.name': 'أقساطي',
+    'app.name': 'اقصادي',
     'app.tagline': 'كل أقساطك بمكان واحد',
-    'brand.home': 'أقساطي — الصفحة الرئيسية',
+    'brand.home': 'اقصادي — الصفحة الرئيسية',
     'skip': 'تخطّى للمحتوى',
 
     'nav.label': 'التنقل الرئيسي',

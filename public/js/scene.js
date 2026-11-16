@@ -66,7 +66,7 @@ async function fontsReady() {
   if (!document.fonts?.load) return;
   try {
     await Promise.race([
-      document.fonts.load(`700 64px ${FONT}`, 'د.ك أقساطي'),
+      document.fonts.load(`700 64px ${FONT}`, 'د.ك اقصادي'),
       new Promise((resolve) => setTimeout(resolve, 1200)),
     ]);
   } catch {
@@ -555,7 +555,7 @@ function coinTextures(THREE, s) {
   g.fillText('د.ك', h, ty);
   g.font = smallFont;
   g.fillStyle = 'rgba(110, 68, 0, 0.8)';
-  g.fillText('أقساطي', h, h + s * 0.25);
+  g.fillText('اقصادي', h, h + s * 0.25);
 
   // bump map (white = raised)
   const [bumpCanvas, b] = canvasOf();
@@ -579,7 +579,7 @@ function coinTextures(THREE, s) {
   b.font = textFont;
   b.fillText('د.ك', h, ty);
   b.font = smallFont;
-  b.fillText('أقساطي', h, h + s * 0.25);
+  b.fillText('اقصادي', h, h + s * 0.25);
 
   const map = new THREE.CanvasTexture(mapCanvas);
   map.colorSpace = THREE.SRGBColorSpace;

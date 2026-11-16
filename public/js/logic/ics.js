@@ -90,7 +90,7 @@ export function remainingOccurrences(installments, { today, payments = [], skipP
 }
 
 const defaultSummary = (ev) => `قسط ${ev.inst.provider} — ${fmtKWD(ev.amount)}`;
-const defaultDescription = (ev) => `${ev.inst.title ? `${ev.inst.title}\n` : ''}الدفعة ${ev.n} من ${ev.total} · أقساطي`;
+const defaultDescription = (ev) => `${ev.inst.title ? `${ev.inst.title}\n` : ''}الدفعة ${ev.n} من ${ev.total} · اقصادي`;
 const defaultAlarm = (ev) => `باچر موعد قسط ${ev.inst.provider} — ${fmtKWD(ev.amount)}`;
 
 /**
@@ -105,7 +105,7 @@ export function buildICS(installments, options = {}) {
     now = new Date(),
     payments = [],
     skipPaid = true,
-    calName = 'أقساطي',
+    calName = 'اقصادي',
     summary = defaultSummary,
     description = defaultDescription,
     alarm = defaultAlarm,
