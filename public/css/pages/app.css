@@ -316,8 +316,10 @@ html[dir='ltr'] .ico-arrow { transform: scaleX(-1); }
 .tour-dots i.is-on { width: 22px; background: var(--gold); }
 .tour-btns { display: flex; gap: 8px; }
 @media (prefers-reduced-motion: no-preference) {
-  .tour.is-on .tour-pop { animation: pop-soft 0.4s var(--ease) both; }
+  /* opacity + the separate `scale` property only: `transform` positions the box (tour.js) and must stay free */
+  .tour.is-on .tour-pop { animation: tour-pop-in 0.4s var(--ease) both; }
 }
+@keyframes tour-pop-in { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .tour-spot, .tour-pop { transition: none; }
 }

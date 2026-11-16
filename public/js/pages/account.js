@@ -22,8 +22,8 @@ registerStrings({
     'acc.signedIn': 'داخل بحسابك',
     'acc.chipGuest': 'بياناتك بهالمتصفح بس',
     'acc.chipSaved': 'محفوظ بحسابك ✓',
-    'acc.stCount': 'أقساط',
-    'acc.stPaid': 'أشهر مدفوعة',
+    'acc.stCount': 'الأقساط',
+    'acc.stPaid': 'الأشهر المدفوعة',
     'acc.stLimit': 'الحد الآمن',
     'acc.navLabel': 'أقسام الصفحة',
 

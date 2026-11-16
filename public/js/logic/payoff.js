@@ -97,7 +97,9 @@ export function simulatePlan(installments, { today, extra = 0, strategy = 'relie
     let pool = extraFils + (rollover ? freed : 0);
     for (const s of state) {
       if (pool <= 0) break;
-      if (s.balance <= 0) continue;
+      // only installments already running this month (not one whose first/next due is later) — else its
+      // finish date would land before its next due date, i.e. in the past
+      if (s.balance <= 0 || key < s.fromKey) continue;
       const pay = Math.min(pool, s.balance);
       s.balance -= pay;
       pool -= pay;

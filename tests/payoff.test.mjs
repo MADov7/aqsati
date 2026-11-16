@@ -26,6 +26,19 @@ test('orderDebts: relief = smallest remaining total first, impact = highest mont
   assert.deepEqual(orderDebts(tie, 'relief').map((d) => d.id), ['y', 'x']);
 });
 
+test('extra money never finishes an installment before its next due date (no finish dates in the past)', () => {
+  const X = { id: 'X', provider: 'تابي', title: '', monthly_amount: 30, due_day: 5, remaining_count: 2, first_due_date: '2026-12-05' };
+  const plan = simulatePlan([X], { today: TODAY, extra: 100, strategy: 'relief' });
+  assert.equal(plan.debts[0].finishKey, '2026-12');
+  assert.equal(plan.debts[0].finishDate, '2026-12-05');
+  for (const extra of [0, 20, 50, 100, 200]) {
+    for (const strategy of ['relief', 'impact']) {
+      const p = simulatePlan([...ALL, X], { today: TODAY, extra, strategy, rollover: true });
+      for (const d of p.debts) assert.ok(d.finishDate >= TODAY && d.finishDate >= d.nextDue, `${d.id} ${extra} ${strategy} → ${d.finishDate}`);
+    }
+  }
+});
+
 test('no extra and no rollover = the natural schedule', () => {
   const plan = simulatePlan(ALL, { today: TODAY, extra: 0, strategy: 'relief' });
   assert.equal(plan.totalDebt, 2730);
@@ -89,7 +102,9 @@ test('edge cases: nothing left, unknown strategy, huge extra', () => {
   assert.equal(simulatePlan([], { today: TODAY }), null);
   assert.equal(simulatePlan(ALL, { today: TODAY, strategy: 'nope' }).strategy, 'relief');
   const big = simulatePlan(ALL, { today: TODAY, extra: 1e6 });
-  assert.equal(big.debtFreeKey, '2026-11');
-  assert.equal(big.monthsToFree, 1);
-  assert.equal(big.monthsSaved, 11);
+  // A and B are paid off this month; C only starts in December, so that is the earliest it can finish
+  assert.equal(big.debtFreeKey, '2026-12');
+  assert.equal(big.debtFreeDate, '2026-12-05');
+  assert.equal(big.monthsToFree, 2);
+  assert.equal(big.monthsSaved, 10);
 });
