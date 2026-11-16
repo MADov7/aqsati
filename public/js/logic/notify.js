@@ -129,7 +129,7 @@ export function notificationFor(due, lang = 'ar') {
   } else {
     title = `${today ? 'اليوم' : 'باچر'} قسط ${due.provider} ${fmtKWD(due.amount)} — لا تنسى`;
     body = [due.title, `يستحق ${fmtDay(due.date)}${due.last ? ' — وهذي آخر دفعة!' : ''}`].filter(Boolean).join(' · ')
-      + '. إذا دفعته علّمه «دفعت ✓» بأقساطي.';
+      + '. إذا دفعته علّمه «دفعت ✓» باقصادي.';
   }
   return {
     title,
@@ -344,7 +344,7 @@ export async function sendTestNotification(lang = getLang()) {
   const en = lang === 'en';
   const done = await show([{
     key: 'test',
-    title: en ? 'Aqsati reminders are on ✓' : 'تنبيهات أقساطي شغّالة ✓',
+    title: en ? 'Aqsati reminders are on ✓' : 'تنبيهات اقصادي شغّالة ✓',
     options: {
       body: en
         ? 'This is how a reminder looks before an installment is due.'

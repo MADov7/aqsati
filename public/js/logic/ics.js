@@ -167,12 +167,12 @@ export function openSeries(installments, { today, payments = [], skipPaid = true
 const defaultSummary = (ev) => `قسط ${ev.inst.provider} — ${fmtKWD(ev.amount)}`;
 function defaultDescription(ev) {
   const title = ev.inst.title ? `${ev.inst.title}\n` : '';
-  if (ev.open) return `${title}قسط شهري بدون تاريخ نهاية · أقساطي`;
+  if (ev.open) return `${title}قسط شهري بدون تاريخ نهاية · اقصادي`;
   if (ev.last) {
     const partial = ev.amount < round3(Number(ev.inst.monthly_amount) || 0);
-    return `${title}الدفعة ${ev.n} من ${ev.total} — آخر دفعة${partial ? ` (${fmtKWD(ev.amount)})` : ''} · أقساطي`;
+    return `${title}الدفعة ${ev.n} من ${ev.total} — آخر دفعة${partial ? ` (${fmtKWD(ev.amount)})` : ''} · اقصادي`;
   }
-  return `${title}الدفعة ${ev.n} من ${ev.total} · أقساطي`;
+  return `${title}الدفعة ${ev.n} من ${ev.total} · اقصادي`;
 }
 const defaultAlarm = (ev) => `باچر موعد قسط ${ev.inst.provider} — ${fmtKWD(ev.amount)}`;
 
@@ -189,7 +189,7 @@ export function buildICS(installments, options = {}) {
     now = new Date(),
     payments = [],
     skipPaid = true,
-    calName = 'أقساطي',
+    calName = 'اقصادي',
     summary = defaultSummary,
     description = defaultDescription,
     alarm = defaultAlarm,

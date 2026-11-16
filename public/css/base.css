@@ -448,7 +448,7 @@ html.is-scrolled .site-header::before { background: var(--header-bg-solid); box-
   flex: none;
   width: auto;
   max-width: none;
-  aspect-ratio: 329.8 / 156;
+  aspect-ratio: 317.4 / 145;
   overflow: visible;
 }
 .wordmark.tone-light .wm-word { fill: #fff; }
@@ -1826,3 +1826,12 @@ details.disclosure > :not(summary) { padding-bottom: var(--s-4); }
   .page { padding: 0; }
   .table th { position: static; }
 }
+
+/* signed-out visitors: no page-to-page navigation (header links, drawer and tab bar are only for signed-in users) */
+html.signed-out { --tabbar-h: 0px; }
+html.signed-out #tabbar { display: none; }
+/* «Powered by Dirbeel Innovation Technology» */
+.powered, .mini-footer { margin: 0; font-size: 0.82rem; color: var(--text-2); letter-spacing: 0.01em; }
+.powered b, .mini-footer b { color: var(--text); font-weight: 600; }
+.mini-footer { display: block; text-align: center; padding: 22px 16px 26px; }
+@media print { .mini-footer { display: none; } }

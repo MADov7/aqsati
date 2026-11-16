@@ -107,7 +107,7 @@ test('several on the same day: biggest first; junk input is ignored safely', () 
 test('notificationFor — Kuwaiti Arabic, the day before', () => {
   const n = notificationFor(duesToNotify(state(ALL), TODAY, 'before')[0], 'ar');
   assert.equal(n.title, 'باچر قسط تابي 45.500 د.ك — لا تنسى');
-  assert.equal(n.options.body, 'جوال · يستحق 17 نوفمبر. إذا دفعته علّمه «دفعت ✓» بأقساطي.');
+  assert.equal(n.options.body, 'جوال · يستحق 17 نوفمبر. إذا دفعته علّمه «دفعت ✓» باقصادي.');
   assert.deepEqual(
     { tag: n.options.tag, lang: n.options.lang, dir: n.options.dir, data: n.options.data },
     { tag: 'aqsati-due-A|2026-11-17', lang: 'ar', dir: 'rtl', data: { url: '/installments', key: 'A|2026-11-17' } },

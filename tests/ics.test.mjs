@@ -227,5 +227,5 @@ test('buildICS: the final payment of an amount plan shows its partial amount and
   assert.ok(!evs[0].DESCRIPTION.includes('آخر دفعة'));
   // a full final payment (mode 1) says «آخر دفعة» without an amount
   const lap = events(buildICS([LAPTOP], { today: '2026-11-15', now: NOW })).at(-1);
-  assert.ok(lap.DESCRIPTION.includes('الدفعة 4 من 4 — آخر دفعة · أقساطي'));
+  assert.ok(lap.DESCRIPTION.includes('الدفعة 4 من 4 — آخر دفعة · اقصادي'));
 });

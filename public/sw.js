@@ -10,7 +10,7 @@
 // Bump VERSION on every deploy that changes the shell; old caches are deleted on activate.
 // On localhost even icons and images are network first, so editing files never shows a stale copy.
 
-const VERSION = 'aqsati-v10-2026-11-16-optional-remaining';
+const VERSION = 'aqsati-v12-2026-11-16-remaining-notify';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -138,9 +138,9 @@ const pageKey = (url) => {
 function offlinePage() {
   const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>أقساطي · بدون إنترنت</title><link rel="stylesheet" href="/css/base.css"></head>
+<title>اقصادي · بدون إنترنت</title><link rel="stylesheet" href="/css/base.css"></head>
 <body><main id="main" class="container page"><div class="empty">
-<img class="offline-logo" src="/icons/icon.svg" width="72" height="72" alt="أقساطي">
+<img class="offline-logo" src="/icons/icon.svg" width="72" height="72" alt="اقصادي">
 <h1 class="empty-title">أنت بدون إنترنت</h1>
 <p class="empty-desc">هالصفحة ما انحفظت قبل. أول ما يرجع الإنترنت حدّث الصفحة.</p>
 <p class="empty-desc" lang="en" dir="ltr">You're offline and this page wasn't saved yet. Reload once you're back online.</p>
@@ -332,7 +332,7 @@ function ntfNotification(due, lang) {
   } else {
     title = `${today ? 'اليوم' : 'باچر'} قسط ${due.provider} ${money} د.ك — لا تنسى`;
     body = [due.title, `يستحق ${ntfDayAr.format(asDate)}${due.last ? ' — وهذي آخر دفعة!' : ''}`].filter(Boolean).join(' · ')
-      + '. إذا دفعته علّمه «دفعت ✓» بأقساطي.';
+      + '. إذا دفعته علّمه «دفعت ✓» باقصادي.';
   }
   return {
     title,
