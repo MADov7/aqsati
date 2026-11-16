@@ -10,7 +10,7 @@
 // Bump VERSION on every deploy that changes the shell; old caches are deleted on activate.
 // On localhost even icons and images are network first, so editing files never shows a stale copy.
 
-const VERSION = 'aqsati-v12-2026-11-16-remaining-notify';
+const VERSION = 'aqsati-v13-2026-11-16-demo-video';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -206,7 +206,8 @@ self.addEventListener('fetch', (event) => {
   if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return; // Google Fonts, jsDelivr: the browser handles them
-  if (url.pathname.startsWith('/api/') || url.pathname === '/sw.js') return; // never cache the API or the worker
+  if (url.pathname.startsWith('/api/') || url.pathname === '/sw.js') return;
+  if (url.pathname.startsWith('/media/')) return; // the demo video streams with Range requests straight from the CDN
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirstPage(request));
