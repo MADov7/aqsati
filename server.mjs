@@ -24,7 +24,7 @@ try {
 
 if (process.argv.slice(2).includes('--memory')) process.env.AQSATI_MEMORY_DB = '1';
 
-const { default: rpcHandler, isMemoryMode } = await import('./lib/rpc.js');
+const { default: rpcHandler, isMemoryMode, cronRemindersHandler } = await import('./lib/rpc.js');
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -63,6 +63,11 @@ const server = http.createServer(async (req, res) => {
   } catch {
     res.statusCode = 400;
     res.end('Bad request');
+    return;
+  }
+
+  if (pathname === '/api/cron-reminders') {
+    await cronRemindersHandler(req, res);
     return;
   }
 

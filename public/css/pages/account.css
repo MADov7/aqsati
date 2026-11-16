@@ -208,3 +208,7 @@ html:lang(ar) .ds-item strong { font-family: var(--font-ar); }
   .pref-seg span b { font-size: 0.82rem; }
   .profile-stats dd { font-size: 1.05rem; }
 }
+
+/* email reminders («ذكرني بالإيميل») */
+.notify-email { display: grid; gap: var(--s-3, 12px); margin-top: var(--s-4, 16px); padding-top: var(--s-4, 16px); border-top: 1px dashed color-mix(in srgb, currentColor 18%, transparent); }
+.notify-email[hidden] { display: none; }

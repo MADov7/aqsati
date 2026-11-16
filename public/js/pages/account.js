@@ -4,7 +4,7 @@
 
 import {
   initPage, registerStrings, t, getLang, setLang, store, saveProfile, changePassword, deleteAccount, logout,
-  getTheme, setTheme, errorText, toast, flash, confirmDialog, promptDialog, fmt, fx, esc, $, $$,
+  getTheme, setTheme, errorText, toast, flash, confirmDialog, promptDialog, fmt, fx, esc, $, $$, rpc,
 } from '../core.js';
 import * as C from '../../calc.js';
 import { passwordStrength, MIN_LENGTH, MAX_LENGTH } from '../logic/password-strength.js';
@@ -633,6 +633,16 @@ registerStrings({
     'ntf.before': 'قبل بيوم',
     'ntf.day': 'يوم القسط',
     'ntf.honest': 'التنبيه يوصلك لما تفتح اقصادي. وعلى الجوال، إذا ثبّت الموقع كتطبيق (Chrome على أندرويد)، يذكرك بالخلفية بعد حتى لو ما فتحته.',
+    'eml.switch': 'ذكرني بالإيميل بعد',
+    'eml.on': 'بنرسل لك إيميل على {email} قبل موعد كل قسط بيوم، إذا ما علّمته «دفعت ✓».',
+    'eml.offHint': 'شغّله ويوصلك تذكير على {email} حتى لو ما فتحت الموقع.',
+    'eml.notConfigured': 'إرسال الإيميل للحين مو مفعّل على السيرفر — اختيارك محفوظ، وأول ما يتفعّل يبدأ يوصلك.',
+    'eml.enabled': 'تمام، بنذكرك بالإيميل ✓',
+    'eml.disabled': 'وقفنا تذكير الإيميل',
+    'eml.test': 'أرسل لي إيميل تجربة',
+    'eml.testSent': 'أرسلنا إيميل تجربة على {email} — شيك الوارد (والسبام بعد).',
+    'eml.testWait': 'استنى دقيقة قبل لا تطلب إيميل تجربة ثاني.',
+    'eml.testFail': 'ما قدرنا نرسل الإيميل الحين، جرّب بعدين.',
     'ntf.test': 'جرّب تنبيه الحين',
     'ntf.onTitle': 'التنبيهات شغّالة',
     'ntf.onBefore': 'بنذكرك قبل موعد كل قسط بيوم.',
@@ -662,6 +672,16 @@ registerStrings({
     'ntf.before': 'A day before',
     'ntf.day': 'On the day',
     'ntf.honest': 'Reminders show up when you open Aqsati. On a phone where the site is installed as an app (Chrome on Android), they come in the background too, even if you don’t open it.',
+    'eml.switch': 'Email me too',
+    'eml.on': 'We’ll email {email} the day before each installment, unless you marked it “Paid ✓”.',
+    'eml.offHint': 'Turn it on to get a reminder at {email} even when the site is closed.',
+    'eml.notConfigured': 'Sending email isn’t switched on on the server yet — your choice is saved and starts working as soon as it is.',
+    'eml.enabled': 'Done — we’ll remind you by email ✓',
+    'eml.disabled': 'Email reminders stopped',
+    'eml.test': 'Send me a test email',
+    'eml.testSent': 'Test email sent to {email} — check your inbox (and spam).',
+    'eml.testWait': 'Please wait a minute before asking for another test email.',
+    'eml.testFail': 'Couldn’t send the email right now — try again later.',
     'ntf.test': 'Send a test reminder',
     'ntf.onTitle': 'Reminders are on',
     'ntf.onBefore': 'We’ll remind you a day before each installment is due.',
@@ -851,6 +871,74 @@ function render() {
   fillSalary();
   syncPrefs();
   renderNotify();
+  loadEmail();
+}
+
+// ---------- email reminders («ذكرني بالإيميل») ----------
+const eml = { user: null, on: false, configured: false, email: '', busy: false, loading: false, html: null };
+
+function renderEmail() {
+  const box = $('#email-box');
+  if (!box) return;
+  box.hidden = !eml.user;
+  if (!eml.user) return;
+  const sw = $('#email-on');
+  sw.checked = eml.on;
+  sw.disabled = eml.busy || eml.loading;
+  $('#email-actions').hidden = !(eml.on && eml.configured);
+  const email = eml.email || eml.user;
+  let html = '';
+  if (eml.on && !eml.configured) html = notifyBox('warn', 'warn', [t('eml.notConfigured')]);
+  else if (eml.on) html = notifyBox('ok', 'ok', [t('eml.on', { email })]);
+  else html = notifyBox('info', 'info', [t('eml.offHint', { email })]);
+  if (eml.html !== html) { $('#email-status').innerHTML = html; eml.html = html; }
+}
+
+function applyEmail(r) {
+  eml.on = r?.on === true;
+  eml.configured = r?.configured === true;
+  if (typeof r?.email === 'string') eml.email = r.email;
+}
+
+async function loadEmail() {
+  const user = store.state.user?.email || null;
+  if (user === eml.user) { renderEmail(); return; }
+  eml.user = user;
+  eml.html = null;
+  if (!user) { renderEmail(); return; }
+  eml.loading = true;
+  renderEmail();
+  try { applyEmail(await rpc('email_reminders_get')); } catch (err) { console.error(err); } finally { eml.loading = false; renderEmail(); }
+}
+
+function bindEmail() {
+  $('#email-on')?.addEventListener('change', async (e) => {
+    const want = e.target.checked;
+    eml.busy = true;
+    renderEmail();
+    try {
+      applyEmail(await rpc('email_reminders_set', { on: want }));
+      toast(t(want ? 'eml.enabled' : 'eml.disabled'), want ? 'ok' : undefined);
+    } catch (err) {
+      toast(errorText(err), 'error');
+    } finally {
+      eml.busy = false;
+      renderEmail();
+    }
+  });
+  $('#email-test')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      applyEmail(await rpc('email_reminders_test'));
+      toast(t('eml.testSent', { email: eml.email }), 'ok');
+    } catch (err) {
+      toast(t(err?.status === 429 ? 'eml.testWait' : 'eml.testFail'), 'error');
+    } finally {
+      btn.disabled = false;
+      renderEmail();
+    }
+  });
 }
 
 // ---------- boot ----------
@@ -862,6 +950,7 @@ bindPasswordTools();
 bindPassword();
 bindLogout();
 bindNotify();
+bindEmail();
 $('#export-csv')?.addEventListener('click', exportCsv);
 $('#head-export')?.addEventListener('click', exportCsv);
 $('#delete-account')?.addEventListener('click', () => { startDelete().catch((err) => toast(errorText(err), 'error')); });

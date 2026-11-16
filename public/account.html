@@ -246,6 +246,19 @@
                   <span data-i18n="ntf.test">جرّب تنبيه الحين</span>
                 </button>
               </div>
+              <div class="notify-email" id="email-box" hidden>
+                <label class="switch notify-switch">
+                  <input type="checkbox" role="switch" id="email-on" aria-describedby="email-status">
+                  <span data-i18n="eml.switch">ذكرني بالإيميل بعد</span>
+                </label>
+                <div class="notify-status" id="email-status" aria-live="polite"></div>
+                <div class="notify-actions" id="email-actions" hidden>
+                  <button type="button" class="btn btn-ghost btn-sm" id="email-test">
+                    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>
+                    <span data-i18n="eml.test">أرسل لي إيميل تجربة</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
 
