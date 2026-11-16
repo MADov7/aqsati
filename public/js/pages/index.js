@@ -1127,4 +1127,4 @@ safely(startMarquee);
 safely(startSteps);
 safely(startPhoneParallax);
 safely(startLimitBand);
-initPage({ active: 'home', title: 'home.title' }).catch((err) => console.error(err));
+initPage({ active: 'home', title: 'app.name' }).catch((err) => console.error(err));
