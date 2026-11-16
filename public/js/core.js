@@ -953,17 +953,25 @@ function setTitle() {
 
 function registerSW() {
   if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
-  const hadController = !!navigator.serviceWorker.controller;
-  const go = () => navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+  let shown = false;
+  // Only a NEW version installed over an already-active one is an update. The first install takes control
+  // silently, even when it finishes activating (clients.claim) after the visitor has moved to another page.
+  const watch = (reg, worker) => {
+    if (!worker || !reg.active || reg.active === worker) return;
+    worker.addEventListener('statechange', () => {
+      if (worker.state !== 'activated' || shown) return;
+      shown = true;
+      toastAction(t('sw.update'), t('sw.reload'), () => location.reload(), 12000);
+    });
+  };
+  const go = () => navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then((reg) => {
+      watch(reg, reg.installing || reg.waiting);
+      reg.addEventListener('updatefound', () => watch(reg, reg.installing));
+    })
+    .catch(() => {});
   if (document.readyState === 'complete') go();
   else window.addEventListener('load', go, { once: true });
-  let shown = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    // first install takes control silently; a later version offers a reload
-    if (!hadController || shown) return;
-    shown = true;
-    toastAction(t('sw.update'), t('sw.reload'), () => location.reload(), 12000);
-  });
 }
 
 // ---------- live sync: other tabs, other devices, connectivity ----------

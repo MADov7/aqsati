@@ -38,7 +38,7 @@ registerStrings({
     'chk.overBody': 'قسطه {monthly} بالشهر، ونسبتك بتصير {ratio}، يعني فوق حدك بـ {over} بالشهر.',
     'chk.alreadyOver': 'أنت أصلاً متعدي حدك قبل هالشراء. الأفضل تخلص قسط قبل لا تاخذ جديد.',
     'chk.suggest': 'لو قسّطته على {count} أو أكثر، يصير ضمن حدك ({monthly} بالشهر).',
-    'chk.suggestTry': 'جرّب على {n} قسط',
+    'chk.suggestTry': 'جرّب على {count}',
     'chk.suggestNone': 'حتى لو قسّطته على 360 قسط ما يمشي مع حدك. وفّر له أو خلّص قسط أول.',
     'chk.kvMonthly': 'قسطه الشهري',
     'chk.kvTotal': 'التزامك بعد الشراء',
@@ -332,7 +332,7 @@ function renderResult({ announce = false } = {}) {
       ? `<div class="alert tone-info suggest">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>
           <div><p>${t('chk.suggest', { count: esc(fmt.count(r.minSafeCount)), monthly: num(fmt.money(C.round3(price / r.minSafeCount))) })}</p>
-          <button type="button" class="btn btn-ghost btn-sm" data-try="${r.minSafeCount}">${esc(t('chk.suggestTry', { n: r.minSafeCount }))}</button></div>
+          <button type="button" class="btn btn-ghost btn-sm" data-try="${r.minSafeCount}">${esc(t('chk.suggestTry', { n: r.minSafeCount, count: fmt.count(r.minSafeCount) }))}</button></div>
         </div>`
       : `<div class="alert tone-warn suggest"><p>${esc(t('chk.suggestNone'))}</p></div>`;
   }

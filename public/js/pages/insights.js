@@ -35,6 +35,7 @@ registerStrings({
     'ins.tlFlat': 'قسطك الشهري ثابت طول السنة الجاية.',
     'ins.tlBackUnder': 'ترجع تحت حدك الآمن من {month}.',
     'ins.tlAllUnder': 'كل الشهور تحت حدك الآمن ({limit}). ممتاز.',
+    'ins.tlAllUnderNear': 'كل الشهور تحت حدك الآمن ({limit})، بس {n} منها قريبة منه — انتبه لها.',
     'ins.tlStillOver': 'كل الشهور الجاية فوق حدك الآمن ({limit}) — جرّب خطة السداد تحت.',
     'ins.tlNoSalary': 'حط راتبك بصفحة «حسابي» عشان نرسم خط حدك الآمن.',
     'ins.limit': 'حدك الآمن {amount}',
@@ -116,6 +117,7 @@ registerStrings({
     'ins.tlFlat': 'Your monthly total stays the same all year.',
     'ins.tlBackUnder': 'You are back under your safe limit from {month}.',
     'ins.tlAllUnder': 'Every month is under your safe limit ({limit}). Great.',
+    'ins.tlAllUnderNear': 'Every month is under your safe limit ({limit}), but {n} of them come close — keep an eye on them.',
     'ins.tlStillOver': 'Every coming month is over your safe limit ({limit}) — try the payoff plan below.',
     'ins.tlNoSalary': 'Add your salary on the Account page to draw your safe-limit line.',
     'ins.limit': 'Safe limit {amount}',
@@ -318,7 +320,7 @@ function toneFor(total, salary, safe) {
   return C.levelFor((total / salary) * 100, safe);
 }
 
-function timelineSummary(tl, limit) {
+function timelineSummary(tl, limit, salary, safe) {
   const first = tl[0];
   const last = tl[tl.length - 1];
   const lines = [t('ins.tlNow', { now: fmt.money(first.total), month: fmt.month(last.key), later: fmt.money(last.total) })];
@@ -334,7 +336,10 @@ function timelineSummary(tl, limit) {
   }
   if (limit) {
     const over = tl.map((m) => m.total > limit + 1e-9);
-    if (!over.some(Boolean)) lines.push(t('ins.tlAllUnder', { limit: fmt.money(limit) }));
+    if (!over.some(Boolean)) {
+      const near = tl.filter((m) => toneFor(m.total, salary, safe) === 'warn').length;
+      lines.push(near ? t('ins.tlAllUnderNear', { limit: fmt.money(limit), n: near }) : t('ins.tlAllUnder', { limit: fmt.money(limit) }));
+    }
     else if (over.every(Boolean)) lines.push(t('ins.tlStillOver', { limit: fmt.money(limit) }));
     else if (over[0]) {
       const back = over.findIndex((o) => !o);
@@ -347,7 +352,7 @@ function timelineSummary(tl, limit) {
 }
 
 function timelineHTML(tl, limit, salary, safe) {
-  const lines = timelineSummary(tl, limit);
+  const lines = timelineSummary(tl, limit, salary, safe);
   const rows = tl.map((m) => {
     const ratio = salary > 0 ? fmt.pct((m.total / salary) * 100) : '—';
     return `<tr><th scope="row">${esc(fmt.month(m.key))}</th><td class="num">${esc(fmt.money(m.total))}</td><td class="num">${m.count}</td><td class="num">${esc(ratio)}</td><td>${esc(m.ending.length ? names(m.ending) : '—')}</td></tr>`;
@@ -401,7 +406,7 @@ function drawTimeline(host, width, tl, limit, salary, safe) {
     limit,
     limitLabel: limit ? t('ins.limit', { amount: fmt.num(limit, 0) }) : '',
     title: t('ins.tlTitle'),
-    desc: timelineSummary(tl, limit).join(' '),
+    desc: timelineSummary(tl, limit, salary, safe).join(' '),
   };
   host.innerHTML = width < 560
     ? rowChart({ ...common, width, fmtValue: (v) => fmt.num(v, 1), labelW: rtl ? 100 : 78 })

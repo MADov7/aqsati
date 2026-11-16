@@ -10,7 +10,7 @@
 // Bump VERSION on every deploy that changes the shell; old caches are deleted on activate.
 // On localhost even icons and images are network first, so editing files never shows a stale copy.
 
-const VERSION = 'aqsati-v7-2026-11-16-tour-payoff';
+const VERSION = 'aqsati-v8-2026-11-16-sw-copy';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 

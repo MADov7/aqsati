@@ -117,10 +117,12 @@ export function startTour({ steps = [], labels = {}, rtl = false, key = TOUR_KEY
     const pw = pop.offsetWidth;
     const ph = pop.offsetHeight;
     const gap = 14;
+    const head = document.getElementById('site-header');
+    const minY = Math.max(12, head && head.getClientRects().length ? head.getBoundingClientRect().bottom + 10 : 12);
     let y;
     if (bottom + gap + ph <= limit) y = bottom + gap;
-    else if (top - gap - ph >= 12) y = top - gap - ph;
-    else y = Math.max(12, limit - ph);
+    else if (top - gap - ph >= minY) y = top - gap - ph;
+    else y = Math.max(minY, limit - ph);
     let x = r.left + r.width / 2 - pw / 2;
     x = Math.max(12, Math.min(vw - pw - 12, x));
     pop.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
