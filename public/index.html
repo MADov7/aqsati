@@ -834,7 +834,7 @@
         </a>
         <p data-i18n="home.footTagline">كل أقساطك بمكان واحد، وتعرف قبل لا تقسّط إذا تقدر.</p>
       </div>
-      <nav class="footer-nav" data-i18n-aria-label="home.footApp" aria-label="التطبيق">
+      <nav class="footer-nav" data-auth-only hidden data-i18n-aria-label="home.footApp" aria-label="التطبيق">
         <h2 class="footer-h" data-i18n="home.footApp">التطبيق</h2>
         <ul>
           <li><a href="/app" data-i18n="nav.app">لوحتي</a></li>
@@ -850,7 +850,7 @@
         <ul>
           <li><a href="/login" data-i18n="auth.login">دخول</a></li>
           <li><a href="/login?mode=signup" data-i18n="home.footSignup">حساب جديد</a></li>
-          <li><a href="/account" data-i18n="nav.account">حسابي</a></li>
+          <li data-auth-only hidden><a href="/account" data-i18n="nav.account">حسابي</a></li>
         </ul>
       </nav>
       <div class="footer-nav">
@@ -866,6 +866,7 @@
     <div class="container footer-bottom">
       <p data-i18n="home.footCopy">© 2026 اقصادي · صُنع بالكويت</p>
       <p data-i18n="home.footNote">اقصادي أداة تنظيم وحساب، مو نصيحة مالية.</p>
+      <p class="powered" dir="ltr">Powered by <b>Dirbeel Innovation Technology</b></p>
     </div>
   </footer>
 

@@ -778,18 +778,20 @@ function loginHref() {
 }
 
 function headerHTML() {
-  const links = HEADER_NAV.map((k) => `<a class="nav-link" href="${PAGES[k].href}"${current(k)}>${ICONS[PAGES[k].icon]}<span>${esc(t(PAGES[k].label))}</span></a>`).join('');
-  const drawer = DRAWER_NAV.map((k) => `<a class="drawer-link" href="${PAGES[k].href}"${current(k)}>${ICONS[PAGES[k].icon]}<span>${esc(t(PAGES[k].label))}</span></a>`).join('');
+  // page-to-page navigation is only for signed-in users; a visitor sees the brand, language, theme and «دخول»
+  const signedIn = !!STATE.user;
+  const links = (signedIn ? HEADER_NAV : []).map((k) => `<a class="nav-link" href="${PAGES[k].href}"${current(k)}>${ICONS[PAGES[k].icon]}<span>${esc(t(PAGES[k].label))}</span></a>`).join('');
+  const drawer = (signedIn ? DRAWER_NAV : []).map((k) => `<a class="drawer-link" href="${PAGES[k].href}"${current(k)}>${ICONS[PAGES[k].icon]}<span>${esc(t(PAGES[k].label))}</span></a>`).join('');
   const target = getLang() === 'ar' ? 'en' : 'ar';
   return `
     <div class="container header-in">
       <a class="brand" href="/" aria-label="${esc(t('brand.home'))}">${logoHTML({ size: 28, tone: 'light', label: false })}</a>
-      <nav class="nav" aria-label="${esc(t('nav.label'))}">${links}</nav>
+      ${signedIn ? `<nav class="nav" aria-label="${esc(t('nav.label'))}">${links}</nav>` : '<span class="nav" aria-hidden="true"></span>'}
       <div class="header-tools">
         <button type="button" class="hdr-btn lang-btn" data-focus-key="lang" data-action="lang" lang="${target}" aria-label="${esc(t('lang.label'))}" title="${esc(t('lang.label'))}">${esc(t('lang.short'))}</button>
         <button type="button" class="hdr-btn theme-btn" data-focus-key="theme" data-action="theme" aria-pressed="false" aria-label="${esc(t('theme.toggle'))}" title="${esc(t('theme.toggle'))}">${ICONS.moon}${ICONS.sun}</button>
         <div class="auth-slot"></div>
-        <button type="button" class="hdr-btn menu-btn" data-focus-key="menu" data-action="menu" aria-expanded="false" aria-controls="nav-drawer" aria-label="${esc(t('nav.openMenu'))}">${ICONS.menu}${ICONS.x}</button>
+        ${signedIn ? `<button type="button" class="hdr-btn menu-btn" data-focus-key="menu" data-action="menu" aria-expanded="false" aria-controls="nav-drawer" aria-label="${esc(t('nav.openMenu'))}">${ICONS.menu}${ICONS.x}</button>` : ''}
       </div>
     </div>
     <div class="drawer" id="nav-drawer" hidden>
@@ -839,7 +841,10 @@ function keepFocus(container, render) {
   if (key) container.querySelector(`[data-focus-key="${key}"]`)?.focus({ preventScroll: true });
 }
 
+let shellSignedIn = null;
 function renderAuthSlot() {
+  // signing in/out changes the whole navigation, not just the account button
+  if (!!STATE.user !== shellSignedIn) { renderShell(); return; }
   const header = document.getElementById('site-header');
   const slot = header?.querySelector('.auth-slot');
   if (!slot) return;
@@ -847,6 +852,9 @@ function renderAuthSlot() {
 }
 
 function renderShell() {
+  shellSignedIn = !!STATE.user;
+  document.documentElement.classList.toggle('signed-out', !shellSignedIn);
+  document.querySelectorAll('[data-auth-only]').forEach((el) => { el.hidden = !shellSignedIn; });
   const header = document.getElementById('site-header');
   if (header) {
     header.classList.add('site-header');
@@ -860,11 +868,18 @@ function renderShell() {
   if (tabbar) {
     tabbar.classList.add('tabbar');
     tabbar.setAttribute('aria-label', t('nav.tabbar'));
-    keepFocus(tabbar, () => { tabbar.innerHTML = tabbarHTML(); });
+    keepFocus(tabbar, () => { tabbar.innerHTML = shellSignedIn ? tabbarHTML() : ''; });
   }
   document.querySelectorAll('.skip-link').forEach((a) => {
     if (!a.hasAttribute('data-i18n') && !a.textContent.trim()) a.textContent = t('skip');
   });
+  if (!document.querySelector('.site-footer, .mini-footer')) {
+    const f = document.createElement('footer');
+    f.className = 'mini-footer';
+    f.setAttribute('dir', 'ltr');
+    f.innerHTML = 'Powered by <b>Dirbeel Innovation Technology</b>';
+    (document.getElementById('main') || document.body.lastElementChild)?.after(f);
+  }
   mountLogos(document); // [data-logo] placeholders (their accessible name follows the language)
 }
 
