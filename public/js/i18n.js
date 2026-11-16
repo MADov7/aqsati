@@ -1,4 +1,4 @@
-// أقساطي — tiny i18n (Arabic first, English second). No dependencies, CSP-safe (textContent / attributes only).
+// اقصادي — tiny i18n (Arabic first, English second). No dependencies, CSP-safe (textContent / attributes only).
 //
 //   registerStrings({ ar: { 'k': 'نص {name}' }, en: { 'k': 'Text {name}' } })
 //   t('k', { name: 'x' })            → string in the current language (falls back to Arabic, then to the key)
@@ -115,8 +115,8 @@ registerStrings({
     'nav.tabbar': 'التنقل السريع',
     'nav.home': 'الرئيسية',
     'nav.app': 'لوحتي',
-    'nav.installments': 'أقساطي',
-    'nav.tabInstallments': 'أقساطي',
+    'nav.installments': 'اقصادي',
+    'nav.tabInstallments': 'اقصادي',
     'nav.check': 'أقدر أشتريه؟',
     'nav.calendar': 'التقويم',
     'nav.insights': 'التحليل',
@@ -310,7 +310,7 @@ registerStrings({
 
     'rem.count': '{count} left',
     'rem.amount': '{amount} left — {count}',
-    'rem.amountLast': '{amount} left — {count}, the last one {last}',
+    'rem.amountLast': '{amount} left — {count}, final payment {last}',
     'rem.open': 'Open-ended — no end date',
 
     'dialog.title': 'Are you sure?',

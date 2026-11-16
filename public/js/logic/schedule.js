@@ -1,4 +1,4 @@
-// أقساطي — pure schedule helpers for the calendar, insights and report pages (no DOM, no network).
+// اقصادي — pure schedule helpers for the calendar, insights and report pages (no DOM, no network).
 // Dates are plain 'YYYY-MM-DD' strings and months 'YYYY-MM' in the user's local calendar (same rules as calc.js).
 
 import {

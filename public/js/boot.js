@@ -1,4 +1,4 @@
-// أقساطي — tiny render-blocking boot script (classic, runs in <head> before the CSS).
+// اقصادي — tiny render-blocking boot script (classic, runs in <head> before the CSS).
 // Puts the saved language (lang + dir) and theme on <html> BEFORE the first paint, so English or
 // explicitly-dark users never see an Arabic/RTL/light flash that flips once the page modules load.
 // core.js re-applies the same values later; storage access is always wrapped in try/catch.

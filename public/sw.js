@@ -1,4 +1,4 @@
-// أقساطي — service worker: the app shell works offline; the API is never cached.
+// اقصادي — service worker: the app shell works offline; the API is never cached.
 //
 //   navigations (pages)     → network first, saved for offline; offline → the saved page (or the dashboard / home)
 //   CSS / JS / manifest     → network first too (so fresh HTML never runs with stale JS after a deploy), cache offline
@@ -10,7 +10,7 @@
 // Bump VERSION on every deploy that changes the shell; old caches are deleted on activate.
 // On localhost even icons and images are network first, so editing files never shows a stale copy.
 
-const VERSION = 'aqsati-v14-2026-11-16-email-reminders';
+const VERSION = 'aqsati-v15-2026-11-16-one-name';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 

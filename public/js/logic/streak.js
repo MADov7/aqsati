@@ -1,4 +1,4 @@
-// أقساطي — payment streak: consecutive months in which EVERY installment due that month was marked paid («دفعت ✓»).
+// اقصادي — payment streak: consecutive months in which EVERY installment due that month was marked paid («دفعت ✓»).
 // Pure (no DOM). Months are 'YYYY-MM'; payments come from STATE.payments (the last 24 months).
 //
 //   computeStreak(installments, payments, today) → {

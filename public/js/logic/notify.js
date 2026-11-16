@@ -1,4 +1,4 @@
-// أقساطي — installment reminder notifications («نبهني قبل موعد القسط»).
+// اقصادي — installment reminder notifications («نبهني قبل موعد القسط»).
 //
 // Pure part (no DOM, no storage; the tests run it in Node):
 //   duesToNotify(state, today, mode)          → payments that fall on the reminder's target day and are not marked paid

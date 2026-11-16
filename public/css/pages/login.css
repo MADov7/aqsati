@@ -1,4 +1,4 @@
-/* أقساطي — /login. Form card + a navy benefits panel (beside it from 960px). Mobile-first, RTL/LTR via logical properties. */
+/* اقصادي — /login. Form card + a navy benefits panel (beside it from 960px). Mobile-first, RTL/LTR via logical properties. */
 
 .auth-wrap { display: grid; gap: var(--s-6); align-items: start; }
 .auth-main { min-width: 0; }

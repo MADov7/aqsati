@@ -1,4 +1,4 @@
-// أقساطي — first-visit onboarding tour: coach marks that point at real elements on the page.
+// اقصادي — first-visit onboarding tour: coach marks that point at real elements on the page.
 // Keyboard: Tab stays inside the coach mark, ←/→ move (mirrored in Arabic), Esc skips. Remembered per browser.
 // Safe to import anywhere (no DOM work until startTour runs). Styles: .tour* in the page CSS (CSSOM only, CSP-safe).
 //

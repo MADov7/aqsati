@@ -1,4 +1,4 @@
-// أقساطي — التقرير الشهري: a printable monthly statement (month selector, brand header, KPIs, table of the
+// اقصادي — التقرير الشهري: a printable monthly statement (month selector, brand header, KPIs, table of the
 // month's dues with paid status, a small chart, tips, generated date). «حمّل PDF» = window.print() with the
 // A4 print stylesheet; «تصدير CSV» = a UTF-8 (BOM) CSV that opens cleanly in Excel / Numbers / Sheets.
 

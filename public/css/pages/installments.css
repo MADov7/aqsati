@@ -1,4 +1,4 @@
-/* أقساطي — أقساطي (installments page). Builds on /css/base.css tokens; logical properties for RTL/LTR. */
+/* اقصادي — اقصادي (installments page). Builds on /css/base.css tokens; logical properties for RTL/LTR. */
 
 .inst-stats { margin-bottom: var(--s-6); }
 .inst-stats .stat-value { font-size: 1.2rem; }

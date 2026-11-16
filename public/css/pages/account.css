@@ -1,4 +1,4 @@
-/* أقساطي — /account (حسابي). Profile + section nav on the side (sticky from 1024px), settings cards in the main column. */
+/* اقصادي — /account (حسابي). Profile + section nav on the side (sticky from 1024px), settings cards in the main column. */
 
 .acc-grid { align-items: start; }
 .acc-aside { display: grid; gap: var(--s-4); }

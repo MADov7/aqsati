@@ -1,4 +1,4 @@
-// أقساطي — pure calculation helpers (no DOM, no network). Shared by the page and the tests.
+// اقصادي — pure calculation helpers (no DOM, no network). Shared by the page and the tests.
 // Dates are plain 'YYYY-MM-DD' strings in the user's local calendar, so time zones never shift a due day.
 
 export const PROVIDERS = ['تابي', 'تمارا', 'ديما', 'قرض بنك', 'بطاقة ائتمانية', 'أخرى'];
@@ -368,6 +368,17 @@ export function fmtCount(n) {
   if (n === 2) return 'قسطين';
   if (n <= 10) return `${n} أقساط`;
   return `${n} قسط`;
+}
+
+/**
+ * «مفتوح» agreeing with fmtCount(n) (same number bands): قسط واحد مفتوح · قسطين مفتوحين · 3 أقساط مفتوحة ·
+ * 11 قسط مفتوح. verb = true adds the matching «يتكرر»: مفتوح يتكرر · مفتوحين يتكررون · مفتوحة تتكرر.
+ */
+export function openAdjAr(n, verb = false) {
+  if (n === 1) return verb ? 'مفتوح يتكرر' : 'مفتوح';
+  if (n === 2) return verb ? 'مفتوحين يتكررون' : 'مفتوحين';
+  if (n <= 10) return verb ? 'مفتوحة تتكرر' : 'مفتوحة';
+  return verb ? 'مفتوح يتكرر' : 'مفتوح';
 }
 
 // ---------- months, schedules and payments (shared by the calendar, insights and report pages) ----------

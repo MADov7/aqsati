@@ -1,4 +1,4 @@
-// أقساطي — لوحتي (dashboard): month summary with the ring gauge, payday alert, debt-free countdown,
+// اقصادي — لوحتي (dashboard): month summary with the ring gauge, payday alert, debt-free countdown,
 // upcoming dues, smart tips, badges, guest banner, salary settings and the first-visit tour.
 import {
   initPage, store, t, registerStrings, getLang, isRTL, fmt, toast, showBanner, errorText, saveProfile, $, esc, fx,
@@ -55,12 +55,13 @@ registerStrings({
 
     'dash.upTitle': 'الأقساط الجاية',
     'dash.upHint': 'أقرب 5 مواعيد',
-    'dash.upAll': 'كل أقساطي',
-    'dash.upMore': 'وباقي {count} بصفحة أقساطي',
+    'dash.upAll': 'كل الأقساط',
+    'dash.upMore': 'وباقي {count} بصفحة اقصادي',
     'dash.left2': 'باقي {count}',
     'dash.debtOpen': 'ما يشمل المفتوحة ({n})',
-    // n = how many (agreement: قسط واحد مفتوح · قسطين مفتوحين · 3 أقساط مفتوحة)
-    'dash.freeOpenNote': (v) => `ما يشمل ${v.count} ${v.n === 1 ? 'مفتوح' : v.n === 2 ? 'مفتوحين' : 'مفتوحة'} (${v.amount} بالشهر) — ${v.n === 1 ? 'يبقى' : 'تبقى'} عليك بعد هالتاريخ.`,
+    // n = how many (agreement via C.openAdjAr: قسط واحد مفتوح · قسطين مفتوحين · 3 أقساط مفتوحة · 11 قسط مفتوح);
+    // the verb refers to the whole set, so it stays «تبقى» for 2+
+    'dash.freeOpenNote': (v) => `ما يشمل ${v.count} ${C.openAdjAr(v.n)} (${v.amount} بالشهر) — ${v.n === 1 ? 'يبقى' : 'تبقى'} عليك بعد هالتاريخ.`,
     'dash.freeOpenOnly': 'كل أقساطك مفتوحة بدون تاريخ نهاية، فما نقدر نحسب متى تخلص.',
     'dash.freeOpenCta': 'حدّد كم باقي',
     'dash.last': 'آخر قسط {month}',
@@ -180,7 +181,7 @@ registerStrings({
       : `Excludes ${v.n} open-ended installments (${v.amount} a month) — they continue after this date.`),
     'dash.freeOpenOnly': "All your installments are open-ended, so there's no end date to count down to.",
     'dash.freeOpenCta': "Set what's left",
-    'dash.last': 'last one {month}',
+    'dash.last': 'ends {month}',
     'dash.paidChip': 'Paid ✓',
     'dash.emptyTitle': 'No installments yet',
     'dash.emptyDesc': 'Add your first installment — or paste your bank SMS and we fill it in — and watch your dashboard come alive.',

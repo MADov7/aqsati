@@ -1,4 +1,4 @@
-// أقساطي — التحليل: KPIs, the 12-month commitment timeline («متى بتخف أقساطك؟») with the safe-limit line,
+// اقصادي — التحليل: KPIs, the 12-month commitment timeline («متى بتخف أقساطك؟») with the safe-limit line,
 // a provider donut (monthly or remaining debt) and the payoff plan (two orderings + extra-payment simulator).
 // Every chart is hand-built SVG with a text summary and a table alternative.
 
@@ -88,9 +88,9 @@ registerStrings({
     'ins.plInstead': 'بدل {date}',
     'ins.kFreeOpen': 'بدون نهاية',
     'ins.kFreeOpenSub': 'كل أقساطك مفتوحة',
-    // agreement: قسط واحد مفتوح · قسطين مفتوحين · 3 أقساط مفتوحة
-    'ins.openExcluded': (v) => `ما يشمل ${C.fmtCount(v.n)} ${v.n === 1 ? 'مفتوح' : v.n === 2 ? 'مفتوحين' : 'مفتوحة'}`,
-    'ins.plOpenOnly': 'خطة السداد تحتاج أقساط لها نهاية. أقساطك الحالية كلها مفتوحة — حدّد كم باقي عليها من «أقساطي».',
+    // agreement (C.openAdjAr): قسط واحد مفتوح · قسطين مفتوحين · 3 أقساط مفتوحة · 11 قسط مفتوح
+    'ins.openExcluded': (v) => `ما يشمل ${C.fmtCount(v.n)} ${C.openAdjAr(v.n)}`,
+    'ins.plOpenOnly': 'خطة السداد تحتاج أقساط لها نهاية. أقساطك الحالية كلها مفتوحة — حدّد كم باقي عليها من «اقصادي».',
     'ins.plOpenTitle': 'برا الخطة: أقساط مفتوحة',
     'ins.plOpenItem': '{monthly} بالشهر — بدون نهاية',
     'ins.dnDebtOpenOnly': 'ما عليك دين له نهاية — كل أقساطك مفتوحة. بدّل لـ«بالشهر» تشوف توزيعها.',
@@ -497,7 +497,8 @@ function drawDonut() {
     // open-ended plans have no debt, so they are not in this ring
     const openCount = remainingSummary(store.state.installments, C.todayISO()).openCount;
     if (!groups.length && openCount > 0) summary = t('ins.dnDebtOpenOnly');
-    else if (openCount > 0) summary += ` · ${t('ins.openExcluded', { n: openCount })}`;
+    // the note goes inside the sentence: «… (182.000 د.ك) · ما يشمل قسط واحد مفتوح.» (both locales end in an ASCII '.')
+    else if (openCount > 0) summary = `${summary.replace(/\.$/, '')} · ${t('ins.openExcluded', { n: openCount })}.`;
   }
   el.querySelector('#dn-summary').textContent = summary;
   el.querySelector('#dn-table').innerHTML = `

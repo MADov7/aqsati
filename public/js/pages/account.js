@@ -1,4 +1,4 @@
-// أقساطي — /account (حسابي). Works for guests too: they get an invitation to create an account plus the
+// اقصادي — /account (حسابي). Works for guests too: they get an invitation to create an account plus the
 // guest-safe settings (salary / safe limit / salary day, theme, language, CSV export).
 // Accounts also get: change password, log out, delete account (confirm dialog + password, danger zone).
 

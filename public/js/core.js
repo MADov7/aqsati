@@ -1,4 +1,4 @@
-// أقساطي — shared core for every page: identity + rpc, the STATE store and its actions, header + mobile tab bar,
+// اقصادي — shared core for every page: identity + rpc, the STATE store and its actions, header + mobile tab bar,
 // theme, i18n, toast / banner / dialogs, language-aware formatting and the service worker.
 // Pages import ONLY from here (plus /calc.js for pure math and ./fx.js for effects).
 // CSP-safe: no inline styles or handlers; styles change through the CSSOM only; user text goes in via textContent / esc().
@@ -315,13 +315,16 @@ export const fmt = {
    */
   left: (s) => {
     if (s?.open) return t('rem.open');
+    // no-break spaces (written as \u00a0 on purpose) so «12.500 د.ك» / «7 أقساط» never split across lines on a phone;
+    // fmt.money itself keeps its plain space (.stat-value .num relies on it to wrap)
+    const nb = (x) => String(x).replace(/ /g, '\u00a0');
     if (s?.mode === 'amount') {
-      const vars = { amount: fmt.money(s.remainingTotal), count: fmt.count(s.remaining) };
+      const vars = { amount: nb(fmt.money(s.remainingTotal)), count: nb(fmt.count(s.remaining)) };
       return s.remaining >= 2 && Number(s.lastAmount) < Number(s.monthly)
-        ? t('rem.amountLast', { ...vars, last: fmt.money(s.lastAmount) })
+        ? t('rem.amountLast', { ...vars, last: nb(fmt.money(s.lastAmount)) })
         : t('rem.amount', vars);
     }
-    return t('rem.count', { count: fmt.count(s?.remaining) });
+    return t('rem.count', { count: nb(fmt.count(s?.remaining)) });
   },
 };
 
@@ -394,7 +397,7 @@ export const ICONS = {
 };
 
 // ---------- the logo: «اقصادى» with two gold coins as the dots of the final yaa ----------
-// The word is outlined from IBM Plex Sans Arabic Bold (shaped exactly as the browser shapes «أقساطي», then the
+// The word is outlined from IBM Plex Sans Arabic Bold (shaped exactly as the browser shapes «اقصادي», then the
 // final yaa's two dots removed), so it looks identical in every browser, before the web font loads, and in
 // favicons. The coins replace the yaa's dots, sized like the chosen concept (≈0.3em each) and set just under the letter.
 
@@ -405,12 +408,12 @@ const LOGO_COIN_R = 15;
 const LOGO_TONES = { light: '#ffffff', dark: '#0f2a4a', auto: '#0f2a4a' };
 
 /**
- * The أقساطي wordmark as an inline SVG string (CSP-safe: attributes only, no style="").
+ * The اقصادي wordmark as an inline SVG string (CSP-safe: attributes only, no style="").
  *   size  — the word's font size in px (default 28): the SVG is size × 3.3 wide and size × 1.56 tall.
  *           CSS may resize it: set a height and keep width auto (`.wordmark` has the aspect-ratio).
  *   tone  — 'light': white word for navy / dark backgrounds (the header) · 'dark': navy word for light surfaces ·
  *           'auto': navy in the light theme, white in the dark theme, navy on paper. The coins are always gold.
- *   label — accessible name; default t('app.name') → «أقساطي» / "Aqsati". Pass false when the parent already
+ *   label — accessible name; default t('app.name') → «اقصادي» / "Aqsati". Pass false when the parent already
  *           names it (e.g. inside the header's home link): the SVG is then aria-hidden.
  *   cls   — extra class names.
  * Without JS imports: put <span data-logo="28" data-logo-tone="light"></span> in the page; initPage fills it.

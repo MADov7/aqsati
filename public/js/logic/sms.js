@@ -1,4 +1,4 @@
-// أقساطي — rule-based reader for Kuwaiti bank / BNPL text messages (Arabic or English, Arabic or Latin digits).
+// اقصادي — rule-based reader for Kuwaiti bank / BNPL text messages (Arabic or English, Arabic or Latin digits).
 // Pure (no DOM, no network): the installments page shows what we understood and lets the user confirm.
 //
 //   parseSms(text) → {

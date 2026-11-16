@@ -1,4 +1,4 @@
-// أقساطي — small interaction effects (no dependencies). Every effect is skipped or softened
+// اقصادي — small interaction effects (no dependencies). Every effect is skipped or softened
 // when the visitor asks for reduced motion. Styles are set through the CSSOM only (CSP-safe).
 // Shared by every page (moved from /fx.js); core.js starts ripples + tilt for all pages.
 

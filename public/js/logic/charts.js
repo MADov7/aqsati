@@ -1,4 +1,4 @@
-// أقساطي — hand-built SVG charts (no libraries). The builders are pure and return SVG markup strings;
+// اقصادي — hand-built SVG charts (no libraries). The builders are pure and return SVG markup strings;
 // bindTips() is the only DOM helper (hover / tap tooltips). CSP-safe: no style="" attributes — colours come
 // from classes (.tone-*, .c-0 … .c-7) styled in the page CSS, so light and dark themes both work.
 //

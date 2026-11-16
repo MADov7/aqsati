@@ -1,4 +1,4 @@
-// أقساطي — landing page (/). Marketing + a live «أقدر أشتريه؟» demo (pure calc, nothing saved),
+// اقصادي — landing page (/). Marketing + a live «أقدر أشتريه؟» demo (pure calc, nothing saved),
 // the 3D hero (lazy, SVG fallback), a phone mockup of «لوحتي» (example numbers, or the visitor's own),
 // a pausable providers marquee, the 4-step "how it works" with a connector traced on scroll, the 40% band,
 // and small "try it" buttons for theme / language / install.
@@ -58,7 +58,7 @@ registerStrings({
     'home.phMonthly': 'التزامك الشهري',
     'home.phFree': 'يبقى لك من الراتب',
     'home.phUp': 'الأقساط الجاية',
-    'home.phAll': 'كل أقساطي',
+    'home.phAll': 'كل الأقساط',
     'home.phFreeTitle': 'العد التنازلي للحرية',
     'home.phFreeBy': 'بتخلص من كل أقساطك بـ',
     'home.phCapEx': 'مثال توضيحي — لوحتك تتعبى بأرقامك أنت.',

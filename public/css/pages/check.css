@@ -1,4 +1,4 @@
-/* أقساطي — أقدر أشتريه؟ + ماذا لو؟ Builds on /css/base.css tokens; logical properties for RTL/LTR. */
+/* اقصادي — أقدر أشتريه؟ + ماذا لو؟ Builds on /css/base.css tokens; logical properties for RTL/LTR. */
 
 .check-grid .card-head { flex-wrap: wrap; }
 .check-grid .card-head > div { flex: 1 1 150px; }

@@ -1,4 +1,4 @@
-/* أقساطي — landing page (/). Builds on /css/base.css tokens; navy hero + navy 40% band in both themes,
+/* اقصادي — landing page (/). Builds on /css/base.css tokens; navy hero + navy 40% band in both themes,
    theme-aware illustrations through --il-* tokens, mobile-first, logical properties for RTL/LTR.
    Every animation lives under prefers-reduced-motion: no-preference (base.css also flattens them on reduce). */
 

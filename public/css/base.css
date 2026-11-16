@@ -1,4 +1,4 @@
-/* أقساطي — design system (shared by every page).
+/* اقصادي — design system (shared by every page).
    Premium FinTech: navy + gold brand, teal = ok, amber = warn, red = over. Arabic first (IBM Plex Sans Arabic),
    Inter for Latin in English mode. Light + dark themes through tokens on [data-theme] (set by core.js);
    before JS runs, the device preference picks the theme. Mobile-first, RTL/LTR via logical properties. */

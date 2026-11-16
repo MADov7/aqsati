@@ -1,4 +1,4 @@
-// أقساطي — أقساطي: the installment list (active / finished), add + edit in an accessible modal, two-step delete
+// اقصادي — اقصادي: the installment list (active / finished), add + edit in an accessible modal, two-step delete
 // with a 5-second undo, «دفعت ✓» per month (this month + the last two), the payment streak, and the bank-SMS reader.
 import {
   initPage, store, t, registerStrings, getLang, applyI18n, fmt, toast, toastAction, showBanner, errorText, getToken,
@@ -13,9 +13,9 @@ import { remindDues } from '../logic/notify.js';
 
 registerStrings({
   ar: {
-    'inst.doc': 'أقساطي',
+    'inst.doc': 'إدارة الأقساط',
     'inst.kicker': 'إدارة الأقساط',
-    'inst.title': 'أقساطي',
+    'inst.title': 'اقصادي',
     'inst.desc': 'أضف أقساطك وعدّلها، وعلّم الي دفعته كل شهر عشان تمشي سلسلة التزامك.',
     'inst.add': 'أضف قسط',
     'inst.smsJump': 'الصق رسالة البنك',
@@ -162,7 +162,7 @@ registerStrings({
     'inst.perMonth': 'per month',
     'inst.next': 'next {date}',
     'inst.left': '{count} left',
-    'inst.last': 'last one {month}',
+    'inst.last': 'ends {month}',
     'inst.finishedOn': 'Finished {month} 🎉',
     'inst.progress': '{paid} of {total} payments made',
     'inst.paidMonth': 'Paid {month} installment',
@@ -234,12 +234,12 @@ registerStrings({
     'form.modeOpen': 'Not sure',
     'form.amountLeft': 'How much is left (KWD)?',
     'form.amountLeftHint': "The total still to pay, including this month's if it hasn't been charged yet",
-    'form.amountCalc': '= {count}, the last one {last}',
+    'form.amountCalc': '= {count}, final payment {last}',
     'form.amountCalcEven': '= {count}, all the same amount',
     'form.amountCalcOne': '= a single payment of {last}',
     'form.amountCalcMax': "That's {count} — the limit is 360",
     'form.amountCalcNeedMonthly': "Enter the monthly amount and we'll work out the payments",
-    'form.amountCalcTiny': '= {count}, the last one only {last} — if that\'s just rounding, choose “Payments left” and enter {n}',
+    'form.amountCalcTiny': '= {count}, final payment only {last} — if that\'s just rounding, choose “Payments left” and enter {n}',
     'form.openNote': "Open-ended — no end date: we count it every month (like a card or a loan whose end you don't know). You can change it later.",
     'form.previewOpen': 'Next {next} · every month, no end date',
     'form.err.remainingMode': "Choose what you know about what's left",
@@ -751,7 +751,8 @@ const editor = {
             </div>
             <p class="hint ed-open-note" id="ed-open-note" data-i18n="form.openNote" hidden>مفتوح — بدون تاريخ نهاية: نحسبه عليك كل شهر (مثل البطاقة أو قرض ما تعرف متى يخلص). تقدر تعدّله بعدين.</p>
           </fieldset>
-          <p class="ed-preview" id="ed-preview" aria-live="polite"></p>
+          <p class="ed-preview" id="ed-preview"></p>
+          <p class="sr-only" id="ed-live" aria-live="polite" aria-atomic="true"></p>
           <p class="err modal-err" id="ed-form-err" aria-live="assertive"></p>
           <div class="modal-actions">
             <button type="button" class="btn btn-ghost" data-close data-i18n="common.cancel">إلغاء</button>
@@ -774,19 +775,18 @@ const editor = {
     form.addEventListener('change', (e) => {
       if (e.target instanceof HTMLInputElement && e.target.name === 'remainingMode') this.syncMode();
     });
-    form.addEventListener('input', (e) => {
+    form.addEventListener('input', () => {
       this.preview();
-      // a field the user fixed loses its error right away
-      const raw = this.raw();
-      const v = C.validateInstallmentInput(raw);
-      const field = e.target.closest('.field');
-      const p = field?.querySelector('[data-err]');
-      if (!p || !p.textContent) return;
-      const key = p.dataset.err === 'other' ? 'provider' : p.dataset.err;
-      if (!v.errors[key]) {
+      // every shown error whose condition no longer holds goes away right away — also one that depends on another
+      // field (fixing the monthly amount can make the «amount left» valid again)
+      const v = C.validateInstallmentInput(this.raw());
+      this.el.querySelectorAll('[data-err]').forEach((p) => {
+        if (!p.textContent) return;
+        const key = p.dataset.err === 'other' ? 'provider' : p.dataset.err;
+        if (v.errors[key]) return;
         p.textContent = '';
-        field.querySelector('input, select')?.setAttribute('aria-invalid', 'false');
-      }
+        p.closest('.field')?.querySelector('input, select')?.setAttribute('aria-invalid', 'false');
+      });
     });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -865,6 +865,8 @@ const editor = {
     const noteEl = this.$('#ed-note');
     noteEl.textContent = note;
     noteEl.hidden = !note;
+    this.$('#ed-live').textContent = '';
+    this.lastLive = '';
     this.texts();
     applyI18n(this.el);
 
@@ -1007,9 +1009,12 @@ const editor = {
     const e = v.errors;
     const ready = Boolean(mode) && !e.monthly && !e.dueDay && !e.remainingMode
       && (mode !== 'count' || !e.remaining) && (mode !== 'amount' || !e.amountLeft);
+    // in amount mode the live hint (payments, last payment, the 360 limit, the rounding warning) is announced too
+    const hint = mode === 'amount' && String(raw.amountLeft ?? '').trim() ? this.$('#ed-amount-hint').textContent : '';
     if (!ready) {
       out.textContent = '';
       out.hidden = true;
+      this.announce(hint);
       return;
     }
     const p = this.plan(v.value);
@@ -1041,6 +1046,14 @@ const editor = {
       });
     }
     out.hidden = false;
+    this.announce([hint, out.textContent].filter(Boolean).join(' · '));
+  },
+
+  /** One fixed live region for the running result: written only when the text changes (no repeat per keystroke). */
+  announce(text) {
+    if (text === this.lastLive) return;
+    this.lastLive = text;
+    this.$('#ed-live').textContent = text;
   },
 
   showErrors(errors, picked) {

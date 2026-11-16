@@ -1,4 +1,4 @@
-// أقساطي — CSV export (pure: no DOM, no network). /account builds the file, the page only downloads it.
+// اقصادي — CSV export (pure: no DOM, no network). /account builds the file, the page only downloads it.
 // Excel-friendly: UTF-8 with a BOM (so Arabic shows correctly), CRLF line endings, RFC 4180 quoting,
 // and user text that starts like a formula (= + - @) is neutralised with a leading apostrophe.
 

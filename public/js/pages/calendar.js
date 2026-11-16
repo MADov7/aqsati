@@ -1,4 +1,4 @@
-// أقساطي — التقويم: month grid (Saturday-first in Arabic, Sunday-first in English), due chips per day with
+// اقصادي — التقويم: month grid (Saturday-first in Arabic, Sunday-first in English), due chips per day with
 // provider colours and amounts, paid ✓ from payments, today + salary day, a day panel with «دفعته» toggles,
 // the month total, an agenda list (the accessible text view of the grid) and the .ics export.
 
@@ -35,8 +35,12 @@ registerStrings({
     'cal.payN': 'الدفعة {n} من {total}',
     'cal.lastPay': 'آخر دفعة',
     'cal.payOpen': 'دفعة شهرية — بدون نهاية',
-    // n = how many (agreement: قسط واحد مفتوح يتكرر · قسطين مفتوحين · 3 أقساط مفتوحة تتكرر)
-    'cal.icsOpen': (v) => `+ ${v.count} ${v.n === 1 ? 'مفتوح يتكرر' : v.n === 2 ? 'مفتوحين يتكررون' : 'مفتوحة تتكرر'} كل شهر بدون نهاية.`,
+    // n = how many (agreement via C.openAdjAr: قسط واحد مفتوح يتكرر · قسطين مفتوحين يتكررون · 3 أقساط مفتوحة تتكرر ·
+    // 11 قسط مفتوح يتكرر); no «+» and no final stop, so it fits both sentences below
+    'cal.openPhrase': (v) => `${v.count} ${C.openAdjAr(v.n, true)} كل شهر بدون نهاية`,
+    'cal.icsOpen': '+ {open}.',
+    'cal.icsHintOpen': 'ملف فيه {open}، مع تنبيه قبل كل موعد بيوم.',
+    'cal.icsDoneOpen': 'نزل الملف ✓ افتحه عشان تضيف {open} للتقويم.',
     'cal.paidCheck': 'دفعته',
     'cal.paidCheckAria': 'دفعت قسط {provider} لشهر {month}',
     'cal.outOfRange': 'تقدر تعلّم الدفع لين الشهر الجاي بس.',
@@ -94,7 +98,10 @@ registerStrings({
     'cal.payN': 'Payment {n} of {total}',
     'cal.lastPay': 'Last payment',
     'cal.payOpen': 'Monthly — no end date',
-    'cal.icsOpen': (v) => `+ ${v.n === 1 ? '1 open-ended installment' : `${v.n} open-ended installments`}, repeating every month.`,
+    'cal.openPhrase': (v) => `${v.n === 1 ? '1 open-ended installment' : `${v.n} open-ended installments`} repeating every month`,
+    'cal.icsOpen': '+ {open}.',
+    'cal.icsHintOpen': 'One file with {open}, each with a reminder the day before.',
+    'cal.icsDoneOpen': 'Downloaded ✓ Open it to add {open} to your calendar.',
     'cal.paidCheck': 'Paid',
     'cal.paidCheckAria': 'I paid the {provider} installment for {month}',
     'cal.outOfRange': 'You can mark payments up to next month only.',
@@ -258,8 +265,7 @@ function render() {
   const series = openSeries(st.installments, { today, payments: st.payments });
   const hasIcs = upcoming.length > 0 || series.length > 0;
   if (icsBtn) icsBtn.disabled = !hasIcs;
-  const icsHint = t('cal.icsHint', { n: t('cal.dues', { n: upcoming.length }) })
-    + (series.length ? ` ${t('cal.icsOpen', { count: fmt.count(series.length), n: series.length })}` : '');
+  const icsHint = icsText('cal.icsHint', 'cal.icsHintOpen', upcoming.length, series.length);
 
   const active = document.activeElement;
   const focusKey = active && el.contains(active) ? active.getAttribute('data-focus-key') : null;
@@ -455,6 +461,17 @@ function emptyHTML() {
 
 // ---------- actions ----------
 
+/**
+ * The calendar-file sentence (card hint / toast) from the two counts: finite dues + open-ended series. With no
+ * finite dues left (every plan is open-ended, or the finite ones are all paid off) the count sentence is left out,
+ * so it never says «0 دفعات». One helper for both, so the hint and the toast can't drift apart.
+ */
+function icsText(finiteKey, openKey, nFinite, nOpen) {
+  const open = nOpen ? t('cal.openPhrase', { count: fmt.count(nOpen), n: nOpen }) : '';
+  if (!nFinite) return t(openKey, { open });
+  return t(finiteKey, { n: t('cal.dues', { n: nFinite }) }) + (open ? ` ${t('cal.icsOpen', { open })}` : '');
+}
+
 function download(name, text, type) {
   const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
@@ -494,7 +511,7 @@ function downloadICS() {
     alarm: en ? (ev) => `Tomorrow: ${fmt.provider(ev.inst.provider)} installment — ${C.fmtKWDEn(ev.amount)}` : undefined,
   });
   download('aqsati-installments.ics', text, 'text/calendar;charset=utf-8');
-  toast(t('cal.icsDone', { n: t('cal.dues', { n: occ.length }) }) + (series.length ? ` ${t('cal.icsOpen', { count: fmt.count(series.length), n: series.length })}` : ''), 'ok');
+  toast(icsText('cal.icsDone', 'cal.icsDoneOpen', occ.length, series.length), 'ok');
 }
 
 async function togglePaid(input) {

@@ -1,4 +1,4 @@
-// أقساطي — smart tips (rule-based, no AI) + the salary-day look-ahead. Pure (no DOM).
+// اقصادي — smart tips (rule-based, no AI) + the salary-day look-ahead. Pure (no DOM).
 //
 //   buildTips({ installments, payments, profile, today }, { lang: 'ar' | 'en', max: 3, exclude: [] })
 //     → [{ id, tone: 'ok' | 'warn' | 'over' | 'info', title, body, action: { href, label } | null }]
@@ -63,7 +63,7 @@ const TEXT = {
     good: (v, f) => ({ title: 'وضعك مريح 👌', body: `أقساطك ${f.pct(v.ratio)} بس من راتبك، ويبقى لك ${f.money(v.free)} كل شهر. استمر كذا!`, action: null }),
     unmarked: (v, f) => ({ title: 'علّم الي دفعته', body: v.count === 1
       ? `${f.count(v.count)} استحق هالشهر وما علّمته «دفعت ✓» (${f.money(v.total)}). علّمه عشان تمشي سلسلتك 🔥`
-      : `${f.count(v.count)} استحقت هالشهر وما علّمتها «دفعت ✓» (${f.money(v.total)}). علّمها عشان تمشي سلسلتك 🔥`, action: { href: '/installments', label: 'روح لأقساطي' } }),
+      : `${f.count(v.count)} استحقت هالشهر وما علّمتها «دفعت ✓» (${f.money(v.total)}). علّمها عشان تمشي سلسلتك 🔥`, action: { href: '/installments', label: 'روح لاقصادي' } }),
     salaryRisk: (v, f) => ({ title: 'قبل الراتب', body: `${f.count(v.count)} ${v.count === 1 ? 'ينسحب' : 'تنسحب'} قبل راتبك الجاي (${f.day(v.salaryDate)}) ${v.count === 1 ? 'بمبلغ' : 'بمجموع'} ${f.money(v.total)}. تأكد إن رصيدك يكفي.`, action: null }),
     salaryDay: () => ({ title: 'متى ينزل راتبك؟', body: 'حط يوم الراتب ونقولك أي أقساط تنسحب قبله، عشان ما يجيك خصم وحسابك فاضي.', action: { href: '#salary', label: 'حط يوم الراتب' } }),
     biggest: (v, f) => ({ title: 'أكبر حمل عليك', body: `قسط ${f.provider(v.provider)} (${f.money(v.amount)}) ياخذ ${f.pct(v.share)} من التزامك الشهري. لو قدرت تخلصه بدري يرتاح راتبك.`, action: { href: '/check#whatif', label: 'جرّب «ماذا لو؟»' } }),
@@ -76,7 +76,7 @@ const TEXT = {
     openEnded: (v, f) => ({
       title: 'أقساط بدون نهاية',
       body: `${f.count(v.count)} بدون تاريخ نهاية (${f.money(v.amount)} بالشهر). إذا عرفت كم باقي ${v.count === 1 ? 'عليه' : 'عليها'}، عدّله عشان نحسب لك متى تخلص.`,
-      action: { href: '/installments', label: 'روح لأقساطي' },
+      action: { href: '/installments', label: 'روح لاقصادي' },
     }),
   },
   en: {
@@ -126,7 +126,7 @@ export function buildTips(input, { lang = 'ar', max = 3, exclude = [] } = {}) {
     if (!salary && s.active.length) add('salary', 'info', 90);
 
     if (s.active.length) {
-      // open-ended installments never finish: «closest», «biggest» and the «over» end date use finite ones only
+      // open-ended installments never finish: «closest» and the «over» end date use finite ones only
       // (a seedless reduce over [] would throw, and null <= 3 is true in JS)
       const finite = s.active.filter((i) => !i.open);
       const soonest = finite.length
@@ -159,8 +159,11 @@ export function buildTips(input, { lang = 'ar', max = 3, exclude = [] } = {}) {
       if (closest) {
         add('closest', 'ok', 62, { provider: soonest.provider, count: soonest.remaining, lastDue: soonest.lastDue, amount: soonest.monthly });
       }
-      if (s.active.length >= 2 && finite.length >= 1) {
-        const biggest = finite.reduce((a, b) => (b.monthly > a.monthly ? b : a));
+      // the biggest over ALL active plans (ties prefer a finite one, so the result never depends on order); when the
+      // biggest is open-ended there is nothing to pay off early, so the tip is skipped rather than naming a smaller plan
+      const top = s.active.reduce((a, b) => (b.monthly > a.monthly || (b.monthly === a.monthly && a.open && !b.open) ? b : a));
+      if (s.active.length >= 2 && !top.open) {
+        const biggest = top;
         const sameAsClosest = closest && biggest.id === soonest.id;
         if (!sameAsClosest && s.monthlyTotal > 0) {
           add('biggest', 'info', 58, { provider: biggest.provider, amount: biggest.monthly, share: (biggest.monthly / s.monthlyTotal) * 100 });

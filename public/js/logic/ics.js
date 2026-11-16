@@ -1,4 +1,4 @@
-// أقساطي — iCalendar (RFC 5545) export of the remaining installment dates, for iPhone / Android / Google / Outlook.
+// اقصادي — iCalendar (RFC 5545) export of the remaining installment dates, for iPhone / Android / Google / Outlook.
 // Pure (no DOM): CRLF line endings, lines folded at 75 octets without splitting a UTF-8 character,
 // all-day events (DTSTART;VALUE=DATE), a stable UID per installment + month, and a reminder one day before.
 // Finite plans get one VEVENT per remaining payment (the final one carries its real, possibly partial, amount);

@@ -1,4 +1,4 @@
-// أقساطي — /login: log in / sign up (tabs), show/hide password, strength hint, caps-lock hint,
+// اقصادي — /login: log in / sign up (tabs), show/hide password, strength hint, caps-lock hint,
 // friendly Arabic/English errors, guest data merges automatically (core actions send p_token),
 // then back to ?next= (default /app). Already logged in → «أنت داخل بـ …» with links.
 

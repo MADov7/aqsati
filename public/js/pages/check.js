@@ -1,5 +1,5 @@
-// أقساطي — أقدر أشتريه؟: the affordability check (calc.affordability) with a verdict, the minimum safe number of
-// installments and «أضفه لأقساطي», plus the «ماذا لو؟» simulator (salary −30%..+50%, finish installments early).
+// اقصادي — أقدر أشتريه؟: the affordability check (calc.affordability) with a verdict, the minimum safe number of
+// installments and «أضفه لاقصادي», plus the «ماذا لو؟» simulator (salary −30%..+50%, finish installments early).
 import {
   initPage, store, t, registerStrings, getLang, fmt, toast, showBanner, errorText, saveProfile, $, $$, esc, fx,
 } from '../core.js';
@@ -50,7 +50,7 @@ registerStrings({
     'chk.legendNow': 'أقساطك الحالية',
     'chk.legendNew': 'الشراء الجديد',
     'chk.ringLabel': 'نسبتك بعد الشراء {ratio} من راتبك، الحين {now}، وحدك {limit}.',
-    'chk.add': 'أضفه لأقساطي',
+    'chk.add': 'أضفه لاقصادي',
     'chk.toWhatif': 'شوفه بـ«ماذا لو؟»',
     'chk.status': '{title}: {body}',
     'chk.needSalary': 'حط راتبك أول',

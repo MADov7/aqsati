@@ -1,4 +1,4 @@
-// أقساطي — hero 3D scene: a fanned "hand" of glass installment cards (one per provider, names as plain
+// اقصادي — hero 3D scene: a fanned "hand" of glass installment cards (one per provider, names as plain
 // text — no logos), glossy gold «د.ك» coins and gold dust.
 // three.js r170 is imported straight from jsDelivr (no build step, no importmap). If WebGL2 isn't there,
 // the import fails, or the GPU drops the context, the inline SVG under the canvas simply stays visible.

@@ -1,4 +1,4 @@
-// أقساطي — payoff plan (pure). Two orderings and an extra-payment simulator.
+// اقصادي — payoff plan (pure). Two orderings and an extra-payment simulator.
 //
 //   أسرع راحة  ('relief') = the smallest remaining total first → whole installments close sooner
 //   أكبر أثر   ('impact') = the highest monthly amount first   → the biggest monthly payment disappears first

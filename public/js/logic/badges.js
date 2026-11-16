@@ -1,4 +1,4 @@
-// أقساطي — achievement badges (أوسمة). Pure (no DOM): computeBadges(state, today) → [{ id, unlocked, progress }].
+// اقصادي — achievement badges (أوسمة). Pure (no DOM): computeBadges(state, today) → [{ id, unlocked, progress }].
 // Text lives here too (Arabic + English) so the page and the tests read the same wording.
 
 import { installmentStatus, monthSummary, DEFAULT_SAFE_LIMIT, dueInMonth, todayISO } from '../../calc.js';

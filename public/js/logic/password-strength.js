@@ -1,4 +1,4 @@
-// أقساطي — password strength (pure: no DOM, no network). Used by /login (signup) and /account (change password).
+// اقصادي — password strength (pure: no DOM, no network). Used by /login (signup) and /account (change password).
 // The server only requires 8..200 characters; this adds a friendly hint about how hard the password is to guess.
 //
 //   passwordStrength('Abcdefgh12') → { level: 'good', score: 3, ok: true, length: 10, checks: {...} }
